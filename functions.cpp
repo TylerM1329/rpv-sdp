@@ -46,10 +46,18 @@ int run_camera_pan(int direction) {
 	return currPos;
 }
 
-void run_acceleration(int pi, int intAccel, int gear)
+void run_acceleration(int pi, int intAccel, int gear, int cruise_control_enabled)
 {
 	int localAccel;
 	if (intAccel) {
+		int cm_until_impact = 80; // get data from camera 
+		if (cruise_control_enabled) { // adjust intAccel based on what is in front of car
+			if (gear != 1) { // don't cruise control when in reverse gear
+				// y = x * (k / 800)
+				intAccel = intAccel * (cm_until_impact / 800);
+			}
+		}
+
 		if (gear == 1) {						// REVERSE
 			printf("Drive motor engaged\n");
 			set_mode(pi, drive_REN, PI_OUTPUT);

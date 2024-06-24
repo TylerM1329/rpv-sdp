@@ -35,6 +35,8 @@ int clientSocket = 0;					// var to hold TCP client socket number
 const int brakeRelaxed = 2050;			// var to hold servo position that relaxes brake
 const int brakeFull = 2250;				// var to hold servo position that brakes fully
 
+int cruise_control_enabled = 0;			// var to hold cruise control option
+
 int main()
 {
 	char ipAddr[15];
@@ -220,7 +222,7 @@ int main()
 		
 		// DO MAIN FUNCTIONS HERE
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
-		run_acceleration(pi, map(controlledAccelValue, 0, 100, 0, 255), gear);
+		run_acceleration(pi, map(controlledAccelValue, 0, 100, 0, 255), gear, cruise_control_enabled);
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
 		spi_xfer(pi, adcHdl, spi_tx, spi_rx, 3);
