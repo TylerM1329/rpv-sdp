@@ -16,8 +16,12 @@
 #include <cstdlib>
 #include <signal.h>
 #include "functions.h"
+#include <math.h>
 
 using namespace std;
+
+const int MAX_SPEED = 100;
+int cm_buffer = 5;
 
 const int drive_RPWM = 17;
 const int drive_LPWM = 27;
@@ -27,6 +31,8 @@ const int drive_LEN = 20;
 const int steering_RPWM = 24;
 const int steering_LPWM = 23;
 const int steering_EN = 19;
+
+
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -50,11 +56,11 @@ void run_acceleration(int pi, int intAccel, int gear, int cruise_control_enabled
 {
 	int localAccel;
 	if (intAccel) {
-		int cm_until_impact = 80; // get data from camera 
+		int cm_until_impact = 80;
 		if (cruise_control_enabled) { // adjust intAccel based on what is in front of car
 			if (gear != 1) { // don't cruise control when in reverse gear
-				// y = x * (k / 800)
-				intAccel = intAccel * (cm_until_impact / 800);
+				// y = x * (1 - k / 800)
+				intAccel = calculate_cruise(intAccel, 800);
 			}
 		}
 
@@ -144,7 +150,7 @@ loop:
 		inet_ntop(AF_INET, &client.sin_addr, host, NI_MAXHOST);
 		cout << host << " connected on " << ntohs(client.sin_port) << " connection 2"<<endl;
 	}
-	cout << "EXITING TCP STARTUP" <<endl;
+	cout << "EXITING TCP STARTUP" << endl;
 	return clientSocket;
 }
 
@@ -364,7 +370,7 @@ userInput2:
 	}
 }
 
-void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2) {
+void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2, int &lidarDist) {
 	char *token;
 	if (dataReady) {							// if data is ready (marked above) then proceed to parse
 			// parse fwd/rvs
@@ -385,6 +391,9 @@ void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue
 			// parse button set 2
 			token = strtok(NULL, "-");
 			buttons2 = atoi(token);
+			// parse Lidar
+			//token = strtok(NULL, "-");
+			//lidarDist = atoi(token);
 		}
 }
 
@@ -407,7 +416,9 @@ int get_cv_flag(int enable, char buffer[]) {	// HARDCODED INDEX IN BUFFER!
 	return CVenable;
 }
 
-int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &lightingHandle, int lightingAddr, int &adcHandle, int &serialHandle) {
+
+// dabble here bozo zzz
+int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &lightingHandle, int lightingAddr, int &adcHandle, int &serialHandle, int &lidarHandle, int lidarAddr) {
 	bool status = 1;
 	piHandle = pigpio_start(NULL, NULL);
 	if (piHandle < 0) {
@@ -445,6 +456,14 @@ int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &light
 	} else
 		printf("> serial open %s \tINIT OK\n", port);
 	//----------------------------------------------------------------------------------------------------/
+
+	lidarHandle = i2c_open(piHandle, 1, lidarAddr, 0);
+	if (lidarHandle < 0) {
+		status = 0;
+		printf("[!] Failed to init lidar!\n");
+	} else
+		printf("> lidar subsystem \t\tINIT OK\n");
+	//----------------------------------------------------------------------------------------------------/
 	set_mode(piHandle, steering_EN, PI_OUTPUT); // steering_EN = 19
 	gpio_write(piHandle, steering_EN, 1); // steering_EN = 19
 	return status;
@@ -457,4 +476,27 @@ void disable_motors(int pi) { // disable motors. gets overridden if other run fu
 	// disable steering motor
 	gpio_write(pi, steering_EN, 0);
 	
+}
+
+
+// Returns a cruise value of 1-100, using accel and lidar info
+int calculate_cruise(int acceleration, int cm_until_impact) {
+	// Calculate the estimated new speed based on time to impact
+	float new_speed = sqrt(0.5 * acceleration * cm_until_impact);
+
+	// Ensure new_speed does not exceed max_speed
+	if (new_speed > MAX_SPEED) {
+    new_speed = MAX_SPEED;
+  	}
+	// Prevents tailgaiting by cm_buffer amount
+	else if (new_speed <= cm_buffer) {
+		new_speed -= cm_buffer;
+
+		// No negative speed allowed
+		if (new_speed < 0)
+		new_speed = 0;
+	}
+
+	// Return the average speed
+	return (new_speed + acceleration + 1) * 0.5;
 }
