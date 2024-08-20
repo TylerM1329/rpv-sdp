@@ -24,6 +24,8 @@ const int camera_servo = 18;
 const int brake_servo = 13;				
 const int ultrasonicAddr = 3;			// I2C address for ultrasonic subsystem
 const int lightingAddr = 6;				// I2C address for lighting subsystem
+const int lidarAddr = 4;				// I2C address for lidar subsystem (Maybe)
+
 
 int pi = 0;								// var to hold pigpiod handle
 int ultrasonicHdl = 0;					// var to hold ultrasonic subsystem handle
@@ -31,6 +33,7 @@ int lightingHdl = 0;					// var to hold lighting subsystem handle
 int adcHdl = 0;							// var to hold SPI ADC handle
 int serialHdl = 0;						// var to hold serial handle
 int clientSocket = 0;					// var to hold TCP client socket number
+int lidarHdl = 0;						// var to hold lidar sensor subsystem handle
 
 const int brakeRelaxed = 2050;			// var to hold servo position that relaxes brake
 const int brakeFull = 2250;				// var to hold servo position that brakes fully
@@ -46,9 +49,10 @@ int main()
 	int ASenable = 0;							// var to hold state of active safety option.
 	int TCPRXbyteCount = 0;						// byte count of received message
 	int serialRXbyteCount = 0;
+	int const serialMaxBytes = 17;				// max bytes of string for processing in bus
 	char socketBuf[512];						// receive buffer for TCP socket
-	char preParseBuf[18];						// buffer that enters parsing logic
-	char serialBuf[18];							// receive buffer for serial port
+	char preParseBuf[serialMaxBytes + 1];						// buffer that enters parsing logic
+	char serialBuf[serialMaxBytes + 1];							// receive buffer for serial port
 	int serialAvail = 0;						// var to hold available bytes to be read
 	int steerValue = 0;							// var to hold parsed steering value
 	int accelValue = 0;							// var to hold parsed acceleration value
@@ -58,6 +62,7 @@ int main()
 	int buttons1 = 0;							// var to hold first set of buttons (X and B). used for camera panning. these get held down
 	int buttons2 = 0;							// var to hold left and right buttons. used for turn signals. brake/reverse handled internally. future: headlight control. CV toggle
 	int gear = 0;								// flag to hold gear. 0 = fwd, 1 = rvs.
+	int lidarDist = 0;
 	char spi_tx[3] = {1, 128, 0};  				// command to read CH0 from MCP3008
 	char spi_rx[3];								// array to hold received SPI data
 	int adc_data = 0;							// var to hold adc value
@@ -71,7 +76,7 @@ int main()
 	char AS_state = 0;							// current state of ASM. 
 	int AS_timer = 0;
 
-	if (!init_IO(pi, ultrasonicHdl, ultrasonicAddr, lightingHdl, lightingAddr, adcHdl, serialHdl))
+	if (!init_IO(pi, ultrasonicHdl, ultrasonicAddr, lightingHdl, lightingAddr, adcHdl, serialHdl, lidarHdl, lidarAddr))
 		printf("[!!] One or more I/O devices failed to initialize!\n");
 	signal(SIGINT, signal_callback_handler);	// make sure to call this after calling init_IO()
 
@@ -99,7 +104,7 @@ int main()
 		if (serialRXenable) {
 			serialAvail = serial_data_available(pi, serialHdl);
 			printf("Serial available: %d\n", serialAvail);
-			if (serialAvail >= 17)
+			if (serialAvail >= serialMaxBytes)
 				serialRXbyteCount = serial_read(pi, serialHdl, serialBuf, sizeof(serialBuf));
 			printf("RX: %s\n", serialBuf);
 		}
@@ -131,10 +136,10 @@ int main()
 
 		if (CVenable) {
 			// SERIAL INPUT MODE
-			if (serialRXbyteCount == 17 && serialRXenable) {
+			if (serialRXbyteCount == serialMaxBytes && serialRXenable) {
 				dataReady = 1; // mark data ready
 				// if true, copy serialBuf into preParseBuf
-				for (int i = 0; i < 17; i++) {
+				for (int i = 0; i < serialMaxBytes; i++) {
 					preParseBuf[i] = serialBuf[i];
 				}
 			} else
@@ -142,11 +147,11 @@ int main()
 				dataReady = 0;
 		} else {
 			// SOCKET INPUT MODE
-			if (TCPRXbyteCount >= 18 && TCPRXbyteCount <= 54) {
+			if (TCPRXbyteCount >= serialMaxBytes + 1 && TCPRXbyteCount <= 54) {
 				// check for valid received byte count
 				dataReady = 1; // mark data ready
 				// if true, copy socketBuf into preParseBuf
-				for (int i = 0; i < 18; i++) 
+				for (int i = 0; i < serialMaxBytes + 1; i++) 
 		 			preParseBuf[i] = socketBuf[i];
 			} else
 				 // if received not enough bytes, mark data not ready
@@ -156,7 +161,7 @@ int main()
 		printf("dataReady: %d\n", dataReady);
 		printf("preParseBuf: %s\n", preParseBuf);
 
-		parse_control_data(dataReady, preParseBuf, gear, steerValue, accelValue, brakeValue, buttons1, buttons2);
+		parse_control_data(dataReady, preParseBuf, gear, steerValue, accelValue, brakeValue, buttons1, buttons2, lidarDist);
 
 		printf("Gear: %d\n", gear);
 		printf("Steering: %d\n", steerValue);
@@ -164,6 +169,8 @@ int main()
 		printf("Braking: %d\n", brakeValue);
 		printf("Button set 1: %d\n", buttons1);
 		printf("Button set 2: %d\n", buttons2);
+		printf("Distance From Lidar: %d\n", lidarDist);
+
 		
 		// ACTIVE SAFETY
 		if (ASenable) {
