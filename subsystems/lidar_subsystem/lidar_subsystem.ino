@@ -1,42 +1,67 @@
 #include <Wire.h>
 
-const int TFMini_ADDRESS = 0x10;  // I2C address for the TF-Luna
-const int SLAVE_ADDRESS = 0x04;   // I2C address for this Arduino as a slave
-
-const char PIN = 2;
-
+const int TFMini_ADDRESS = 0x10;  // I2C address for the TF-Luna (sensor)
+const int SLAVE_ADDRESS = 0x11;   // I2C address for this Arduino
 const int MAX_DISTANCE = 225;
+uint16_t distance = 0;
+
+// Function prototypes
+uint8_t getLowByte(uint16_t value);
+uint8_t getHighByte(uint16_t value);
+void sendDistance();
 
 void setup() {
-  Serial.begin(9600);
-  pinMode(PIN, OUTPUT);
-  Wire.begin(SLAVE_ADDRESS);  // Start I2C as slave
-  Wire.begin();  // Join the I2C bus as a master
+  Wire.begin(SLAVE_ADDRESS);  // Start I2C as a slave
+  Wire.onRequest(sendDistance);  // Register function to send data on request
+  Serial.begin(9600);  // Initialize serial communication for debugging
 }
 
 void loop() {
+  // Simulate reading distance from the Lidar sensor (replace with actual sensor code)
   Wire.beginTransmission(TFMini_ADDRESS);
-  Wire.write(0x00);  // Start the measurement
+  Wire.write(0x00);  // Start the measurement (for the actual sensor)
   Wire.endTransmission();
   delay(100);  // Wait for measurement to complete
 
   Wire.requestFrom(TFMini_ADDRESS, 2);  // Request 2 bytes from TF-Luna
   if (Wire.available() == 2) {
-    analogWrite(PIN, getDistance());
+    uint8_t lowByte = Wire.read();
+    uint8_t highByte = Wire.read();
+    distance = (highByte << 8) | lowByte;  // Combine bytes into 16-bit value
 
+    if (distance > MAX_DISTANCE) {
+      distance = MAX_DISTANCE;  // Cap the distance at 225 cm
+    }
+
+    // Print distance for debugging purposes
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.print(" cm ");
+    Serial.print("Sending low byte: ");
+    Serial.print(lowByte, HEX);
+    Serial.print("  Sending high byte: ");
+    Serial.println(highByte, HEX);
   }
+
   delay(1000);  // Delay before next measurement
 }
 
-uint16_t getDistance() {
-  uint16_t distance = Wire.read() | Wire.read() << 8;
+// Function to send the distance to the Raspberry Pi via I2C
+void sendDistance() {
+  Serial.println("distance set");
+  uint8_t lowByte = getLowByte(distance);
+  uint8_t highByte = getHighByte(distance);
 
-  if(distance > MAX_DISTANCE) 
-    distance = MAX_DISTANCE;
-    
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
+  Wire.write(lowByte);  // Send low byte of the distance
+  Wire.write(highByte);  // Send high byte of the distance
+}
 
-  return ((byte *)&distance, sizeof(distance));
+// Helper function to extract low byte from a 16-bit value
+uint8_t getLowByte(uint16_t value) {
+  return value & 0xFF;
+}
+
+// Helper function to extract high byte from a 16-bit value
+uint8_t getHighByte(uint16_t value) {
+  return (value >> 8) & 0xFF;
 }
