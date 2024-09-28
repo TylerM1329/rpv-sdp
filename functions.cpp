@@ -295,6 +295,31 @@ int run_active_safety(int piHandle, int ultrasonicHandle) {
 	*/
 }
 
+
+int run_lidar(int piHandle, int lidarHandle) {
+    char data[2];  // Array to store the 2 bytes of distance
+
+    // Read 2 bytes from the lidar sensor
+    int bytesRead = i2c_read_device(piHandle, lidarHandle, data, 2);
+	  if (bytesRead == 2) {
+		uint16_t distance = (data[1] << 8) | data[0];
+		cout << "Lidar Distance: " << distance << " cm" << std::endl;
+	  }
+	  else
+	  {
+		cout << "Didn't recieve 2 bytes!\n";
+	  }
+    // Combine the two bytes into a single 16-bit integer value
+    //uint16_t distance = ((uint8_t)lidarDist[1] << 8) | (uint8_t)lidarDist[0];
+
+    // Print the distance
+    //printf("Distance: %d cm\n", distance);
+	printf("Raw bytes:\n", (data[0]), data[1]);  // Print raw bytes
+    //return distance;  // Return the distance if you need it
+	return 69;
+}
+
+
 void get_network_options(char *ipAddr, int &port) {
 	int source = 0;
 connectionInput:
@@ -349,8 +374,10 @@ userInput:
 		}
 	}
 userInput2:
-	cout << "Active Safety: 1 for ON, 0 for OFF: ";
-	cin >> userOption;
+	// DEPRECIATED CODE. NO LONGER WORKS AND WILL STAND STILL IF SET TO 1
+	// cout << "Active Safety: 1 for ON, 0 for OFF: ";
+	// cin >> userOption;
+	userOption = 0;
 	switch (userOption)
 	{
 		case 1: {
@@ -417,7 +444,7 @@ int get_cv_flag(int enable, char buffer[]) {	// HARDCODED INDEX IN BUFFER!
 }
 
 
-// dabble here bozo zzz
+// zzz
 int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &lightingHandle, int lightingAddr, int &adcHandle, int &serialHandle, int &lidarHandle, int lidarAddr) {
 	bool status = 1;
 	piHandle = pigpio_start(NULL, NULL);
@@ -452,7 +479,7 @@ int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &light
 	serialHandle = serial_open(piHandle, port, 115200, 0);			// init serial and assign handle to "serialHdl"
 	if (serialHandle < 0) {
 		status = 0;
-		printf("[!] Failed to init serial!\n");
+		printf("[!] Failed to init serial! Try turning car off and on again!\n");
 	} else
 		printf("> serial open %s \tINIT OK\n", port);
 	//----------------------------------------------------------------------------------------------------/
