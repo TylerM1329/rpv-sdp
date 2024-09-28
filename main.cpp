@@ -24,8 +24,8 @@ const int camera_servo = 18;
 const int brake_servo = 13;				
 const int ultrasonicAddr = 3;			// I2C address for ultrasonic subsystem
 const int lightingAddr = 6;				// I2C address for lighting subsystem
-const int lidarAddr = 4;				// I2C address for lidar subsystem (Maybe)
-
+// using addresses below 10 can cause issues
+const int lidarAddr = 0x11;				// I2C address for lidar subsystem (Maybe)
 
 int pi = 0;								// var to hold pigpiod handle
 int ultrasonicHdl = 0;					// var to hold ultrasonic subsystem handle
@@ -240,6 +240,7 @@ int main()
 		run_reverse_lights(gear, pi, lightingHdl);
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
+		run_lidar(pi, lidarHdl);
 		
 
 		printf("\n");
@@ -256,6 +257,7 @@ void signal_callback_handler(int signum) {
    serial_close(pi, serialHdl);
    i2c_close(pi, lightingHdl);
    i2c_close(pi, ultrasonicHdl);
+   i2c_close(pi, lidarHdl);
    spi_close(pi, adcHdl);
    pigpio_stop(pi);
    close(clientSocket);
