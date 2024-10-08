@@ -1,0 +1,8 @@
+﻿  Source.cpp
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\um\dinput.h: DIRECTINPUT_VERSION undefined. Defaulting to version 0x0800
+C:\Users\benjhong\Documents\GitHub\rpv-sdp\TCPSimClient_B\Source.cpp(397,20): warning C4244: 'argument': conversion from 'double' to 'long', possible loss of data
+C:\Users\benjhong\Documents\GitHub\rpv-sdp\TCPSimClient_B\Source.cpp(403,26): warning C4244: 'argument': conversion from 'double' to 'long', possible loss of data
+C:\Users\benjhong\Documents\GitHub\rpv-sdp\TCPSimClient_B\Source.cpp(423,25): warning C4244: 'argument': conversion from 'double' to 'long', possible loss of data
+C:\Users\benjhong\Documents\GitHub\rpv-sdp\TCPSimClient_B\Source.cpp(272,7): warning C4101: 'port_Numb': unreferenced local variable
+C:\Users\benjhong\Documents\GitHub\rpv-sdp\TCPSimClient_B\Source.cpp(273,6): warning C4101: 'port_num': unreferenced local variable
+  TCPSimClient_B.vcxproj -> C:\Users\benjhong\Documents\GitHub\rpv-sdp\TCPSimClient_B\Debug\TCPSimClient_B.exe
