@@ -2,7 +2,7 @@
 
 const int TFMini_ADDRESS = 0x10;  // I2C address for the TF-Luna (sensor)
 const int SLAVE_ADDRESS = 0x11;   // I2C address for this Arduino
-const int MAX_DISTANCE = 225;
+const int MAX_DISTANCE = 400;
 uint16_t distance = 0;
 
 // Function prototypes
@@ -29,8 +29,13 @@ void loop() {
     uint8_t highByte = Wire.read();
     distance = (highByte << 8) | lowByte;  // Combine bytes into 16-bit value
 
+  // todo dont let it go to 0 bc no light reflects on nothin' - see how this plays out
     if (distance > MAX_DISTANCE) {
       distance = MAX_DISTANCE;  // Cap the distance at 225 cm
+    }
+    if (distance == 0)
+    {
+      distance = MAX_DISTANCE;
     }
 
     // Print distance for debugging purposes
