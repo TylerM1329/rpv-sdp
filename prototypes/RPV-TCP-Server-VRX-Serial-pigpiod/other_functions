@@ -1,0 +1,67 @@
+void run_steering(int intSteer)
+{
+	//Math to translate intSteer and run the steering actuator
+	int position, value;
+	value = (((intSteer-(65535/2)) * 280) / 65535) + 565;	// "Value" = control that is captured and sent over. "Position" = current actuator position
+	value = (value / 3) - 30;							// This function's purpose is to move the actuator's real-time "Position" to match the desired control "Value"
+	// value is subtracted by 30 to center the wheels. Can be adjusted should the center need be readjusted
+	position = analogRead(100);
+	position = position / 3;
+	cout << "\nPosition = " << position << " value = " << value << endl;
+	if((value > (position + 2)) || (value < (position - 2) ) )// checks if value is outside of bounds of position +/- 1 (value can be adjusted later on)  
+	{
+		
+		cout << "\nSTEERING" << endl;
+		// Turn Right
+		if (position < value)	
+		{
+			digitalWrite(steering_EN, 1); // Enable Steering
+			digitalWrite(steering_RPWM, 0);
+			digitalWrite(steering_LPWM, 1);
+			position = (analogRead(100)) / 3;		// Re-check position.
+		}
+
+		// Turn Left
+		else if (position > value)	
+		{
+			digitalWrite(steering_EN, 1); // Enable Steering
+			digitalWrite(steering_RPWM, 1);
+			digitalWrite(steering_LPWM, 0);
+			position = (analogRead(100)) / 3;		// Re-check position.
+		}
+		
+		
+	}
+	else{
+	// Stops actuator once it reaches proper position
+	digitalWrite(steering_EN, 0); //disable steering
+	digitalWrite(steering_RPWM, 0);
+	digitalWrite(steering_LPWM, 0);
+	cout << "\nDONE STEERING" <<endl;
+}
+	
+}    
+
+void run_braking(int intBrake, string &strBrake)
+{
+	digitalWrite(25, 1); //enable braking
+	if (intBrake >= 24000) 
+	{
+		cout <<"\nBRAKING NOW";
+		//digitalWrite(24, 0);		// EN1 and EN2 signal to initate brake.
+		//digitalWrite(23, 1);
+		//digitalWrite(28, 0); 	//disable Baccel
+		//digitalWrite(29, 0); 	//disable Faccel
+		softPwmWrite(7, 0);		// Shut off accel. motor
+		strBrake = "ON";
+	}
+
+	else  
+	{
+		//digitalWrite(24, 1);
+		//digitalWrite(23, 0);
+		strBrake = "Off";
+		cout <<"\nDONE BRAKING";
+	}
+	
+}
