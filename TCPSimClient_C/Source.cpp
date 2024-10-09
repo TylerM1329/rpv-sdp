@@ -25,6 +25,7 @@ Z = signal left
 X = signal right
 H = headlights
 T = cv control
+C = toggle cruise control
 
 F-000-000-000-0-0
 F-%3d-%3d-%3d-%1d-%1d
@@ -155,6 +156,8 @@ int main() {
 			tempBtns2 = 3;
 		else if (GetKeyState('H') & 0x8000) // headlights
 			tempBtns2 = 4;
+		else if (GetKeyState('C') & 0x8000) // cruise control
+			tempBtns2 = 5;
 		else
 			tempBtns2 = 0;
 
