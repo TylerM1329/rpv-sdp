@@ -45,6 +45,8 @@ int tempBtns2 = 0;
 char txBuf[18];
 int txBufLen = 18;
 
+bool wasCPressed = false;
+
 void get_network_options(char* ipAddr, int& port) {
 	int source = 0;
 connectionInput:
@@ -147,8 +149,15 @@ int main() {
 			tempBtns1 = 3;
 		else
 			tempBtns1 = 0;
+		
+
+		// TOGGLE FOR CRUISE CONTROL
+		bool isCPressed = GetKeyState('C') & 0x8000;
+		if (isCPressed && !wasCPressed) // cruise control
+			tempBtns2 = 5;
+		
 		// OTHER CONTROL KEYS
-		if (GetKeyState('X') & 0x8000) // signal right
+		else if (GetKeyState('X') & 0x8000) // signal right
 			tempBtns2 = 1;
 		else if (GetKeyState('Z') & 0x8000) // signal left
 			tempBtns2 = 2;
@@ -156,10 +165,10 @@ int main() {
 			tempBtns2 = 3;
 		else if (GetKeyState('H') & 0x8000) // headlights
 			tempBtns2 = 4;
-		else if (GetKeyState('C') & 0x8000) // cruise control
-			tempBtns2 = 5;
 		else
 			tempBtns2 = 0;
+		
+		wasCPressed = isCPressed;
 
 		printf("steering: %d ", steering);
 		printf("gear: %d ", gear);
