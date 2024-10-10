@@ -4,22 +4,23 @@
             "type": "cppbuild",
             "label": "C/C++: g++.exe build active file",
             "command": "D:\\Coding\\msys64\\ucrt64\\bin\\g++.exe",
+            "options": {
+                "cwd": "${fileDirname}",
+                "fileBasenameNoExtension": "TCPSimClient_C"
+            },
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
                 "-o",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe",
+                "${fileDirname}\\TCPSimClient_C.exe",
                 "-static",               // Fully static linking
-                "-static-libgcc",       // Static link libgcc
+                "-static-libgcc",        // Static link libgcc
                 "-static-libstdc++",     // Static link libstdc++
                 "-lWs2_32",   // Link the Winsock library
                 "-ldinput8",  // Link the DirectInput library
                 "-ldxguid"    // Link the DirectX GUID library
             ],
-            "options": {
-                "cwd": "${fileDirname}"
-            },
             "problemMatcher": [
                 "$gcc"
             ],
