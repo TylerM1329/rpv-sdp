@@ -229,7 +229,8 @@ int main()
 		
 		// DO MAIN FUNCTIONS HERE
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
-		run_acceleration(pi, map(controlledAccelValue, 0, 100, 0, 255), gear, cruise_control_enabled);
+		lidarDist = run_lidar(buttons2, pi, lidarHdl);
+		run_acceleration(pi, map(controlledAccelValue, 0, 100, 0, 255), gear, lidarDist);
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
 		spi_xfer(pi, adcHdl, spi_tx, spi_rx, 3);
@@ -240,7 +241,6 @@ int main()
 		run_reverse_lights(gear, pi, lightingHdl);
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
-		run_lidar(pi, lidarHdl);
 		
 
 		printf("\n");

@@ -9,7 +9,7 @@ int setup_TCP_Server(char[], int);
 void run_brake_lights(int, int, int);
 void run_reverse_lights(int, int, int);
 void run_turn_signals(int, int, int);
-int run_lidar(int, int);
+int run_lidar(int, int, int);
 int run_active_safety(int, int);
 void get_network_options(char*, int&);
 void get_user_options(int&, int&);

@@ -32,6 +32,8 @@ const int steering_RPWM = 24;
 const int steering_LPWM = 23;
 const int steering_EN = 19;
 
+int cruise_activated = 0;
+
 
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
@@ -52,18 +54,21 @@ int run_camera_pan(int direction) {
 	return currPos;
 }
 
-void run_acceleration(int pi, int intAccel, int gear, int cruise_control_enabled)
+void run_acceleration(int pi, int intAccel, int gear, int lidarDist)
 {
+	int cm_until_impact = 80;
+	if (cruise_activated) { // adjust intAccel based on what is in front of car
+		if (gear != 1) { // don't cruise control when in reverse gear
+			// y = x * (1 - k / 800)
+			intAccel = calculate_cruise(178, lidarDist);
+			gear = 0;
+			cout << "TRYING TO CALCULATE CRUISE CONTROL ";
+			cout << intAccel;
+			cout << "\n";
+		}
+	}
 	int localAccel;
 	if (intAccel) {
-		int cm_until_impact = 80;
-		if (cruise_control_enabled) { // adjust intAccel based on what is in front of car
-			if (gear != 1) { // don't cruise control when in reverse gear
-				// y = x * (1 - k / 800)
-				intAccel = calculate_cruise(intAccel, 800);
-			}
-		}
-
 		if (gear == 1) {						// REVERSE
 			printf("Drive motor engaged\n");
 			set_mode(pi, drive_REN, PI_OUTPUT);
@@ -191,6 +196,9 @@ void run_reverse_lights(int gear, int piHandle, int lightingHandle) {
 }
 
 void run_turn_signals(int buttons2, int piHandle, int lightingHandle) {
+	cout << "Started running turn signal ";
+	cout << buttons2;
+	cout << endl;
 	static bool turnFlag1 = 1;
 	static bool turnFlag2 = 1;
 	if (buttons2 == 1) {
@@ -209,6 +217,8 @@ void run_turn_signals(int buttons2, int piHandle, int lightingHandle) {
 		turnFlag1 = 1;
 		turnFlag2 = 1;
 	}
+	cout << "Done running turn signal";
+	cout << endl;
 }
 
 void run_cv_status_led(int status, int piHandle, int lightingHandle) {
@@ -296,27 +306,29 @@ int run_active_safety(int piHandle, int ultrasonicHandle) {
 }
 
 
-int run_lidar(int piHandle, int lidarHandle) {
+int run_lidar(int toggle, int piHandle, int lidarHandle) {
+	cout << "run_lidar started\n";
+	if (toggle == 5) 
+	{
+		cruise_activated = !cruise_activated; // More elegant if-else statement for toggling cruise_control
+	}
+	//else if (!cruise_activated) return -1; // Don't calculate cruise control not enabled.
+
+	uint16_t distance;
     char data[2];  // Array to store the 2 bytes of distance
 
     // Read 2 bytes from the lidar sensor
     int bytesRead = i2c_read_device(piHandle, lidarHandle, data, 2);
 	  if (bytesRead == 2) {
-		uint16_t distance = (data[1] << 8) | data[0];
+		distance = (data[1] << 8) | data[0];
 		cout << "Lidar Distance: " << distance << " cm" << std::endl;
 	  }
 	  else
 	  {
 		cout << "Didn't recieve 2 bytes!\n";
 	  }
-    // Combine the two bytes into a single 16-bit integer value
-    //uint16_t distance = ((uint8_t)lidarDist[1] << 8) | (uint8_t)lidarDist[0];
 
-    // Print the distance
-    //printf("Distance: %d cm\n", distance);
-	printf("Raw bytes:\n", (data[0]), data[1]);  // Print raw bytes
-    //return distance;  // Return the distance if you need it
-	return 69;
+    return distance;  // Return the distance if you need it
 }
 
 
@@ -418,9 +430,6 @@ void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue
 			// parse button set 2
 			token = strtok(NULL, "-");
 			buttons2 = atoi(token);
-			// parse Lidar
-			//token = strtok(NULL, "-");
-			//lidarDist = atoi(token);
 		}
 }
 
