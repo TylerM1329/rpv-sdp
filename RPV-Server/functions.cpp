@@ -21,7 +21,7 @@
 using namespace std;
 
 const int MAX_SPEED = 100;
-int cm_buffer = 5;
+int cm_buffer = 150;
 
 const int drive_RPWM = 17;
 const int drive_LPWM = 27;
@@ -33,7 +33,7 @@ const int steering_LPWM = 23;
 const int steering_EN = 19;
 
 int cruise_activated = 0;
-
+int cruise_toggle = 0;
 
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
@@ -60,9 +60,8 @@ void run_acceleration(int pi, int intAccel, int gear, int lidarDist)
 	if (cruise_activated) { // adjust intAccel based on what is in front of car
 		if (gear != 1) { // don't cruise control when in reverse gear
 			// y = x * (1 - k / 800)
-			intAccel = calculate_cruise(178, lidarDist);
+			intAccel = map(calculate_cruise(lidarDist), 0, 100, 0, 255);
 			gear = 0;
-			cout << "TRYING TO CALCULATE CRUISE CONTROL ";
 			cout << intAccel;
 			cout << "\n";
 		}
@@ -307,13 +306,18 @@ int run_active_safety(int piHandle, int ultrasonicHandle) {
 
 
 int run_lidar(int toggle, int piHandle, int lidarHandle) {
-	cout << "run_lidar started\n";
-	if (toggle == 5) 
+	if (cruise_toggle == false && toggle == 5)
 	{
 		cruise_activated = !cruise_activated; // More elegant if-else statement for toggling cruise_control
+		cruise_toggle = true;
 	}
-	//else if (!cruise_activated) return -1; // Don't calculate cruise control not enabled.
-
+	else if(toggle == 0)
+	{
+		cruise_toggle = false;
+	}
+	if (!cruise_activated)
+		return -1; // Don't calculate cruise control not enabled.
+	
 	uint16_t distance;
     char data[2];  // Array to store the 2 bytes of distance
 
@@ -322,6 +326,7 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 	  if (bytesRead == 2) {
 		distance = (data[1] << 8) | data[0];
 		cout << "Lidar Distance: " << distance << " cm" << std::endl;
+		cout << "Cruise Value: " << calculate_cruise(distance) << " speed" << endl;
 	  }
 	  else
 	  {
@@ -516,17 +521,17 @@ void disable_motors(int pi) { // disable motors. gets overridden if other run fu
 
 
 // Returns a cruise value of 1-100, using accel and lidar info
-int calculate_cruise(int acceleration, int cm_until_impact) {
+int calculate_cruise(int cm_until_impact) {
 	// Calculate the estimated new speed based on time to impact
-	float new_speed = sqrt(0.5 * acceleration * cm_until_impact);
+	float new_speed = 0.25 * cm_until_impact;
 
 	// Ensure new_speed does not exceed max_speed
 	if (new_speed > MAX_SPEED) {
-    new_speed = MAX_SPEED;
+    	new_speed = MAX_SPEED;
   	}
 	// Prevents tailgaiting by cm_buffer amount
-	else if (new_speed <= cm_buffer) {
-		new_speed -= cm_buffer;
+	else if (cm_until_impact <= cm_buffer) {
+		// new_speed -= 0.5 * cm_buffer;
 
 		// No negative speed allowed
 		if (new_speed < 0)
@@ -534,5 +539,5 @@ int calculate_cruise(int acceleration, int cm_until_impact) {
 	}
 
 	// Return the average speed
-	return (new_speed + acceleration + 1) * 0.5;
+	return (new_speed);
 }

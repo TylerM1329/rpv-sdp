@@ -19,6 +19,6 @@ int init_IO(int&, int&, int, int&, int, int&, int&, int&, int);
 void run_headlights(int, int, int);
 void run_cv_status_led(int, int, int);
 void disable_motors(int);
-int calculate_cruise(int acceleration, int cm_until_impact);
+int calculate_cruise(int cm_until_impact);
 int read_lidar_distance(int, int);
 #endif
