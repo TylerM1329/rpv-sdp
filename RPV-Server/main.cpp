@@ -169,7 +169,7 @@ int main()
 		printf("Braking: %d\n", brakeValue);
 		printf("Button set 1: %d\n", buttons1);
 		printf("Button set 2: %d\n", buttons2);
-		printf("Distance From Lidar: %d\n", lidarDist);
+		// printf("Distance From Lidar: %d\n", lidarDist);
 
 		
 		// ACTIVE SAFETY
@@ -230,6 +230,16 @@ int main()
 		// DO MAIN FUNCTIONS HERE
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
 		lidarDist = run_lidar(buttons2, pi, lidarHdl);
+		
+		if (lidarDist >= 0 && lidarDist <= 130)
+		{
+			controlledBrakeValue = 100;
+		}
+		else
+		{
+			controlledBrakeValue = 0;
+		}
+		cout << "controlledBrakeValue: " << (controlledBrakeValue) << "endl";
 		run_acceleration(pi, map(controlledAccelValue, 0, 100, 0, 255), gear, lidarDist);
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
@@ -242,7 +252,6 @@ int main()
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
 		
-
 		printf("\n");
 		usleep(50*1000);
     }
