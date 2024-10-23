@@ -531,7 +531,7 @@ int calculate_cruise(int cm_until_impact) {
   	}
 	// Prevents tailgaiting by cm_buffer amount
 	else if (cm_until_impact <= cm_buffer) {
-		// new_speed -= 0.5 * cm_buffer;
+		new_speed = 0;
 
 		// No negative speed allowed
 		if (new_speed < 0)
