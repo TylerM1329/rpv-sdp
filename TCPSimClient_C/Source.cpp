@@ -34,7 +34,7 @@ snprintf(simData, simDataLen, "F-%3d-%3d-%3d-%1d-%1d", newTempSteer, newTempAcce
 */
 using namespace std;
 
-int accelVal = 50;
+int accelVal = 1;
 int steering = 0;
 int gear = 0;	// 0 = fwd, 1 = reverse
 int accel = 0;
@@ -44,8 +44,6 @@ int tempBtns2 = 0;
 
 char txBuf[18];
 int txBufLen = 18;
-
-bool wasCPressed = false;
 
 void get_network_options(char* ipAddr, int& port) {
 	int source = 0;
@@ -94,14 +92,6 @@ int main() {
 	int port = 0;
 	get_network_options(ipAddr, port);
 	printf("Accepted values: IP = %s Port = %d\n", ipAddr, port);
-	cout << "Set acceleration value: ";
-	cin >> accelVal;
-	if (accelVal < 0)
-		accelVal = 0;
-	else if (accelVal > 100)
-		accelVal = 100;
-	cout << "Accepted acceleration value " << accelVal;
-	cout << endl;
 	system("PAUSE");
 
 	//Create a hint structure for the server
@@ -150,14 +140,9 @@ int main() {
 		else
 			tempBtns1 = 0;
 		
-
-		// TOGGLE FOR CRUISE CONTROL
-		bool isCPressed = GetKeyState('C') & 0x8000;
-		if (isCPressed && !wasCPressed) // cruise control
-			tempBtns2 = 5;
 		
 		// OTHER CONTROL KEYS
-		else if (GetKeyState('X') & 0x8000) // signal right
+		if (GetKeyState('X') & 0x8000) // signal right
 			tempBtns2 = 1;
 		else if (GetKeyState('Z') & 0x8000) // signal left
 			tempBtns2 = 2;
@@ -165,10 +150,10 @@ int main() {
 			tempBtns2 = 3;
 		else if (GetKeyState('H') & 0x8000) // headlights
 			tempBtns2 = 4;
+		else if (GetKeyState('C') & 0x8000) // cruise control
+			tempBtns2 = 5;
 		else
 			tempBtns2 = 0;
-		
-		wasCPressed = isCPressed;
 
 		printf("steering: %d ", steering);
 		printf("gear: %d ", gear);
