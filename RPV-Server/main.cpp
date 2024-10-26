@@ -25,7 +25,8 @@ const int brake_servo = 13;
 const int ultrasonicAddr = 3;			// I2C address for ultrasonic subsystem
 const int lightingAddr = 6;				// I2C address for lighting subsystem
 // using addresses below 10 can cause issues
-const int lidarAddr = 0x11;				// I2C address for lidar subsystem (Maybe)
+const int lidarAddr = 0x11;				// I2C address for lidar subsystem
+const int GPSAddr = 0x15;				// I2C address for GPS Subsytem (Named Telementary)
 
 int pi = 0;								// var to hold pigpiod handle
 int ultrasonicHdl = 0;					// var to hold ultrasonic subsystem handle
@@ -34,6 +35,7 @@ int adcHdl = 0;							// var to hold SPI ADC handle
 int serialHdl = 0;						// var to hold serial handle
 int clientSocket = 0;					// var to hold TCP client socket number
 int lidarHdl = 0;						// var to hold lidar sensor subsystem handle
+int GPSHdl = 0;							// var to hold GPS Sensor (Telementary) subsystem handle
 
 const int brakeRelaxed = 2050;			// var to hold servo position that relaxes brake
 const int brakeFull = 2250;				// var to hold servo position that brakes fully
@@ -51,8 +53,8 @@ int main()
 	int serialRXbyteCount = 0;
 	int const serialMaxBytes = 17;				// max bytes of string for processing in bus
 	char socketBuf[512];						// receive buffer for TCP socket
-	char preParseBuf[serialMaxBytes + 1];						// buffer that enters parsing logic
-	char serialBuf[serialMaxBytes + 1];							// receive buffer for serial port
+	char preParseBuf[serialMaxBytes + 1];		// buffer that enters parsing logic
+	char serialBuf[serialMaxBytes + 1];			// receive buffer for serial port
 	int serialAvail = 0;						// var to hold available bytes to be read
 	int steerValue = 0;							// var to hold parsed steering value
 	int accelValue = 0;							// var to hold parsed acceleration value
@@ -63,6 +65,7 @@ int main()
 	int buttons2 = 0;							// var to hold left and right buttons. used for turn signals. brake/reverse handled internally. future: headlight control. CV toggle
 	int gear = 0;								// flag to hold gear. 0 = fwd, 1 = rvs.
 	int lidarDist = 0;
+	int GPSLoca   = 0;							// Var to hold GPS data
 	char spi_tx[3] = {1, 128, 0};  				// command to read CH0 from MCP3008
 	char spi_rx[3];								// array to hold received SPI data
 	int adc_data = 0;							// var to hold adc value
@@ -76,7 +79,7 @@ int main()
 	char AS_state = 0;							// current state of ASM. 
 	int AS_timer = 0;
 
-	if (!init_IO(pi, ultrasonicHdl, ultrasonicAddr, lightingHdl, lightingAddr, adcHdl, serialHdl, lidarHdl, lidarAddr))
+	if (!init_IO(pi, ultrasonicHdl, ultrasonicAddr, lightingHdl, lightingAddr, adcHdl, serialHdl, lidarHdl, lidarAddr, GPSHdl, GPSAddr))
 		printf("[!!] One or more I/O devices failed to initialize!\n");
 	signal(SIGINT, signal_callback_handler);	// make sure to call this after calling init_IO()
 
@@ -161,7 +164,7 @@ int main()
 		printf("dataReady: %d\n", dataReady);
 		printf("preParseBuf: %s\n", preParseBuf);
 
-		parse_control_data(dataReady, preParseBuf, gear, steerValue, accelValue, brakeValue, buttons1, buttons2, lidarDist);
+		parse_control_data(dataReady, preParseBuf, gear, steerValue, accelValue, brakeValue, buttons1, buttons2, lidarDist, GPSLoca);
 
 		printf("Gear: %d\n", gear);
 		printf("Steering: %d\n", steerValue);
@@ -169,7 +172,7 @@ int main()
 		printf("Braking: %d\n", brakeValue);
 		printf("Button set 1: %d\n", buttons1);
 		printf("Button set 2: %d\n", buttons2);
-		printf("Distance From Lidar: %d\n", lidarDist);
+		// printf("Distance From Lidar: %d\n", lidarDist);
 
 		
 		// ACTIVE SAFETY
@@ -230,7 +233,19 @@ int main()
 		// DO MAIN FUNCTIONS HERE
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
 		lidarDist = run_lidar(buttons2, pi, lidarHdl);
-		run_acceleration(pi, map(controlledAccelValue, 0, 100, 0, 255), gear, lidarDist);
+		
+		if (lidarDist >= 0 && lidarDist <= 150)
+		{
+			controlledBrakeValue = 100;
+		}
+		else
+		{
+			controlledBrakeValue = 0;
+		}
+
+		
+		cout << "controlledBrakeValue: " << (controlledBrakeValue) << "endl";
+		run_acceleration(pi, controlledAccelValue, gear, lidarDist);
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
 		spi_xfer(pi, adcHdl, spi_tx, spi_rx, 3);
@@ -241,8 +256,8 @@ int main()
 		run_reverse_lights(gear, pi, lightingHdl);
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
+		// run_GPS(pi, GPSHdl);
 		
-
 		printf("\n");
 		usleep(50*1000);
     }
@@ -258,6 +273,7 @@ void signal_callback_handler(int signum) {
    i2c_close(pi, lightingHdl);
    i2c_close(pi, ultrasonicHdl);
    i2c_close(pi, lidarHdl);
+   i2c_close(pi, GPSAddr);
    spi_close(pi, adcHdl);
    pigpio_stop(pi);
    close(clientSocket);
