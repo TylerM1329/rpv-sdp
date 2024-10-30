@@ -48,12 +48,12 @@ void loop() {
     Serial.println(highByte, HEX);
   }
 
-  delay(1000);  // Delay before next measurement
+  delay(500);  // Delay before next measurement
 }
 
 // Function to send the distance to the Raspberry Pi via I2C
 void sendDistance() {
-  Serial.println("distance set");
+  //Serial.println("distance set");
   uint8_t lowByte = getLowByte(distance);
   uint8_t highByte = getHighByte(distance);
 
