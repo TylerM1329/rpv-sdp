@@ -333,6 +333,8 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 	  if (bytesRead == 2) {
 		distance = (data[1] << 8) | data[0];
 		cout << "Lidar Distance: " << distance << " cm" << std::endl;
+
+		if (!cruise_activated) {return -1;}
 		cout << "Cruise Value: " << calculate_cruise(distance) << " speed" << endl;
 	  }
 	  else
