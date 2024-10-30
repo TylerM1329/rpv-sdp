@@ -40,7 +40,6 @@ int GPSHdl = 0;							// var to hold GPS Sensor (Telementary) subsystem handle
 const int brakeRelaxed = 2050;			// var to hold servo position that relaxes brake
 const int brakeFull = 2250;				// var to hold servo position that brakes fully
 
-int cruise_control_enabled = 0;			// var to hold cruise control option
 
 int main()
 {
@@ -78,7 +77,7 @@ int main()
 	bool haltFlag = 0;
 	char AS_state = 0;							// current state of ASM. 
 	int AS_timer = 0;
-
+	
 	if (!init_IO(pi, ultrasonicHdl, ultrasonicAddr, lightingHdl, lightingAddr, adcHdl, serialHdl, lidarHdl, lidarAddr, GPSHdl, GPSAddr))
 		printf("[!!] One or more I/O devices failed to initialize!\n");
 	signal(SIGINT, signal_callback_handler);	// make sure to call this after calling init_IO()
@@ -233,19 +232,19 @@ int main()
 		// DO MAIN FUNCTIONS HERE
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
 		lidarDist = run_lidar(buttons2, pi, lidarHdl);
-		
-		if (lidarDist >= 0 && lidarDist <= 150)
+		if (brakeValue == 0)
 		{
-			controlledBrakeValue = 100;
+			controlledBrakeValue = calculate_cruise_breaks(lidarDist);
 		}
-		else
+		
+		if (controlledBrakeValue == 100)
 		{
-			controlledBrakeValue = 0;
+			controlledAccelValue = 0;
 		}
 
-		
-		cout << "controlledBrakeValue: " << (controlledBrakeValue) << "endl";
 		run_acceleration(pi, controlledAccelValue, gear, lidarDist);
+		
+
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
 		spi_xfer(pi, adcHdl, spi_tx, spi_rx, 3);
@@ -258,6 +257,8 @@ int main()
 		run_headlights(buttons2, pi, lightingHdl);
 		// run_GPS(pi, GPSHdl);
 		
+
+
 		printf("\n");
 		usleep(50*1000);
     }
@@ -275,8 +276,12 @@ void signal_callback_handler(int signum) {
    i2c_close(pi, lidarHdl);
    i2c_close(pi, GPSAddr);
    spi_close(pi, adcHdl);
+
    pigpio_stop(pi);
+
    close(clientSocket);
+
+   system("sudo killall pigpiod");
    
    // Terminate program
    exit(signum);

@@ -36,8 +36,6 @@ int cruise_toggle = 0;
 
 int MAX_SPEED = 100;
 
-int cached_distance = -1;
-
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -173,18 +171,18 @@ void run_brake_lights(int brakeValue, int piHandle, int lightingHandle) {
     static bool brakeFlag1 = 1;
     static bool brakeFlag2 = 1;
     if (brakeValue > 50) {					// 60 is when brake actually starts to grab
-			brakeFlag2 = 1;						// brake flags used to ensure I2C commands are issued only once
-			if (brakeFlag1) {
-				i2c_write_byte(piHandle, lightingHandle, 6);	
-				brakeFlag1 = 0;
-			}
-		} else {
-			brakeFlag1 = 1;
-			if (brakeFlag2) {
-				i2c_write_byte(piHandle, lightingHandle, 7);
-				brakeFlag2 = 0;
-			}
+		brakeFlag2 = 1;						// brake flags used to ensure I2C commands are issued only once
+		if (brakeFlag1) {
+			i2c_write_byte(piHandle, lightingHandle, 6);	
+			brakeFlag1 = 0;
 		}
+	} else {
+		brakeFlag1 = 1;
+		if (brakeFlag2) {
+			i2c_write_byte(piHandle, lightingHandle, 7);
+			brakeFlag2 = 0;
+		}
+	}
 }
 
 void run_reverse_lights(int gear, int piHandle, int lightingHandle) {
@@ -326,9 +324,6 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 	{
 		cruise_toggle = false;
 	}
-	if (!cruise_activated)
-		return -1; // Don't calculate cruise control not enabled.
-	
 
 	uint16_t distance;
     char data[2];  // Array to store the 2 bytes of distance
@@ -346,7 +341,6 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 		i2c_close(piHandle, lidarHandle);
 		lidarHandle = i2c_open(piHandle, 1, 0x11, 0);
 	  }
-
 
     return distance;  // Return the distance if you need it
 }
@@ -490,9 +484,11 @@ void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue
 			// parse acceleration
 			token = strtok(NULL, "-");
 			accelValue = atoi(token);
+			if (accelValue > 0) { cruise_activated = false; }
 			// parse braking
 			token = strtok(NULL, "-");
 			brakeValue = atoi(token);
+			if (brakeValue > 0) { cruise_activated = false; }
 			// parse button set 1
 			token = strtok(NULL, "-");
 			buttons1 = atoi(token);
@@ -596,15 +592,6 @@ void disable_motors(int pi) { // disable motors. gets overridden if other run fu
 
 // Returns a cruise value of 1-100, using accel and lidar info
 int calculate_cruise(int cm_until_impact) {
-	if (cm_until_impact != 400 || cached_distance == -1)
-	{
-		cached_distance = cm_until_impact;
-	} 
-	if (cached_distance > 50 && cm_until_impact == 400)
-	{
-		cached_distance = cm_until_impact;
-	}
-
 	// Calculate the estimated new speed based on time to impact
 	float new_speed = 0.25 * cm_until_impact - 0.25 * MAX_SPEED;
 
@@ -613,7 +600,7 @@ int calculate_cruise(int cm_until_impact) {
     	new_speed = MAX_SPEED;
   	}
 	// Prevents tailgaiting by cm_buffer amount
-	else if (cm_until_impact <= cm_buffer) {
+	if (cm_until_impact <= cm_buffer) {
 		new_speed = 0;
 
 		// No negative speed allowed
@@ -623,4 +610,16 @@ int calculate_cruise(int cm_until_impact) {
 
 	// Return the average speed
 	return (new_speed);
+}
+
+int calculate_cruise_breaks(int lidarDist)
+{
+	if (lidarDist >= 0 && lidarDist <= 120 + MAX_SPEED)
+	{
+		return 100;
+	}
+	else
+	{
+		return 0;
+	}
 }
