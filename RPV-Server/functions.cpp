@@ -17,6 +17,7 @@
 #include <signal.h>
 #include "functions.h"
 #include <math.h>
+#include <cmath>
 
 using namespace std;
 
@@ -55,25 +56,25 @@ int run_camera_pan(int direction) {
 	return currPos;
 }
 
-void run_acceleration(int pi, int intAccel, int gear, int lidarDist)
+void run_acceleration(int pi, int intAccel, int gear)
 {
-	if (intAccel)
+	if (intAccel && !autopilot_active())
 	{
 		intAccel = MAX_SPEED;
 	}
 
-	if (cruise_activated) { // adjust intAccel based on what is in front of car
-		if (gear != 1) { // don't cruise control when in reverse gear
-			// y = x * (1 - k / 800)
-			intAccel = map(calculate_cruise(lidarDist) , 0, 100, 0, 255);
-			gear = 0;
-			cout << intAccel;
-			cout << "\n";
-		}
-	}
-	else if (intAccel)
+	// if (cruise_activated) { // adjust intAccel based on what is in front of car
+	// 	if (gear != 1) { // don't cruise control when in reverse gear
+	// 		intAccel = map(intAccel, 0, 100, 0, 255);
+	// 		gear = 0;
+	// 		cout << intAccel;
+	// 		cout << "\n";
+	// 	}
+	// }
+	// else 
+	if (intAccel)
 	{
-		intAccel = map(MAX_SPEED, 0, 100, 0, 255);
+		intAccel = map(intAccel, 0, 100, 0, 255);
 	}
 
 	if (intAccel) {
@@ -335,13 +336,14 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 		cout << "Lidar Distance: " << distance << " cm" << std::endl;
 
 		if (!cruise_activated) {return -1;}
-		cout << "Cruise Value: " << calculate_cruise(distance) << " speed" << endl;
+		
 	  }
 	  else
 	  {
 		cout << "Lidar failed. Reinitializing I2C handle...\n";
 		i2c_close(piHandle, lidarHandle);
-		lidarHandle = i2c_open(piHandle, 1, 0x11, 0);
+		lidarHandle = i2c_open(piHandle, 1, 0x20, 0);
+		return -1;
 	  }
 
     return distance;  // Return the distance if you need it
@@ -474,7 +476,7 @@ userInput2:
 }
 
 
-void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2, int &lidarDist, int &GPSLoca) {
+void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2) {
 	char *token;
 	if (dataReady) {							// if data is ready (marked above) then proceed to parse
 			// parse fwd/rvs
@@ -595,12 +597,14 @@ void disable_motors(int pi) { // disable motors. gets overridden if other run fu
 // Returns a cruise value of 1-100, using accel and lidar info
 int calculate_cruise(int cm_until_impact) {
 	// Calculate the estimated new speed based on time to impact
-	float new_speed = 0.25 * cm_until_impact - 0.25 * MAX_SPEED;
+	float new_speed = 0.25 * cm_until_impact;
+
 
 	// Ensure new_speed does not exceed max_speed
 	if (new_speed > MAX_SPEED) {
     	new_speed = MAX_SPEED;
   	}
+
 	// Prevents tailgaiting by cm_buffer amount
 	if (cm_until_impact <= cm_buffer) {
 		new_speed = 0;
@@ -611,17 +615,28 @@ int calculate_cruise(int cm_until_impact) {
 	}
 
 	// Return the average speed
+	cout << "Cruise Value: " << new_speed << " speed" << endl;
 	return (new_speed);
 }
 
 int calculate_cruise_breaks(int lidarDist)
-{
-	if (lidarDist >= 0 && lidarDist <= 120 + MAX_SPEED)
+{	
+	if (!cruise_activated) {return 0;}
+
+	if (lidarDist > 0 && lidarDist <= 120 + MAX_SPEED)
 	{
+		cout << "\nYES BREAKS\n";
 		return 100;
 	}
 	else
 	{
+		cout << "\nNO BREAKS\n";
 		return 0;
 	}
+}
+
+
+bool autopilot_active()
+{
+	return cruise_activated;
 }
