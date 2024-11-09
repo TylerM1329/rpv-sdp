@@ -25,7 +25,7 @@ const int brake_servo = 13;
 const int ultrasonicAddr = 3;			// I2C address for ultrasonic subsystem
 const int lightingAddr = 6;				// I2C address for lighting subsystem
 // using addresses below 10 can cause issues
-const int lidarAddr = 0x11;				// I2C address for lidar subsystem
+const int lidarAddr = 0x20;				// I2C address for lidar subsystem
 const int GPSAddr = 0x15;				// I2C address for GPS Subsytem (Named Telementary)
 
 int pi = 0;								// var to hold pigpiod handle
@@ -163,7 +163,7 @@ int main()
 		printf("dataReady: %d\n", dataReady);
 		printf("preParseBuf: %s\n", preParseBuf);
 
-		parse_control_data(dataReady, preParseBuf, gear, steerValue, accelValue, brakeValue, buttons1, buttons2, lidarDist, GPSLoca);
+		parse_control_data(dataReady, preParseBuf, gear, steerValue, accelValue, brakeValue, buttons1, buttons2);
 
 		printf("Gear: %d\n", gear);
 		printf("Steering: %d\n", steerValue);
@@ -173,77 +173,78 @@ int main()
 		printf("Button set 2: %d\n", buttons2);
 		// printf("Distance From Lidar: %d\n", lidarDist);
 
-		
-		// ACTIVE SAFETY
-		if (ASenable) {
-			printf("AS_STATE: %d\n", AS_state);
-			switch (AS_state) {
-			case 0: // normal state
-				haltFlag = 0;
-				if (run_active_safety(pi, ultrasonicHdl))
-					AS_state = 1;	// move to next state
-				else
-					AS_state = 0;	// stay
-			break;
-			case 1: // obstacle detected
-				run_active_safety(pi, ultrasonicHdl);		// only used to print ultrasonic data
-				haltFlag = 1;
-				if (accelValue == 0)
-					AS_state = 2;	// if accel pedal is released, move to next state
-				else
-					AS_state = 1;	// stay
-			break;
-			case 2: // pedal released, continue halting
-				run_active_safety(pi, ultrasonicHdl);		// only used to print ultrasonic data
-				haltFlag = 1;
-				if (accelValue > 0)
-					AS_state = 3;	// if accel pedal is presesd, move to next state
-				else
-					AS_state = 2;	// stay
-			break;
-			case 3:	// un-halt and start timer
-				run_active_safety(pi, ultrasonicHdl);		// only used to print ultrasonic data
-				haltFlag = 0;
-				AS_timer++;
-				printf("AS_TIMER: %d\n", AS_timer);
-				if (AS_timer > 12) {
-					AS_timer = 0;	// clear timer
-					if (run_active_safety(pi, ultrasonicHdl))
-						AS_state = 1;	// if obstacle is still present, move to state 1
-					else
-						AS_state = 0;	// if obstacle is not present, move to state 0
-				} else
-					AS_state = 3;	// stay
-			break;
-			}
-		}
+		// (DEPRECIATED CODE COMMENTED OUT)
+		// // ACTIVE SAFETY (DEPRECIATED)
+		// if (ASenable) {
+		// 	printf("AS_STATE: %d\n", AS_state);
+		// 	switch (AS_state) {
+		// 	case 0: // normal state
+		// 		haltFlag = 0;
+		// 		if (run_active_safety(pi, ultrasonicHdl))
+		// 			AS_state = 1;	// move to next state
+		// 		else
+		// 			AS_state = 0;	// stay
+		// 	break;
+		// 	case 1: // obstacle detected
+		// 		run_active_safety(pi, ultrasonicHdl);		// only used to print ultrasonic data
+		// 		haltFlag = 1;
+		// 		if (accelValue == 0)
+		// 			AS_state = 2;	// if accel pedal is released, move to next state
+		// 		else
+		// 			AS_state = 1;	// stay
+		// 	break;
+		// 	case 2: // pedal released, continue halting
+		// 		run_active_safety(pi, ultrasonicHdl);		// only used to print ultrasonic data
+		// 		haltFlag = 1;
+		// 		if (accelValue > 0)
+		// 			AS_state = 3;	// if accel pedal is presesd, move to next state
+		// 		else
+		// 			AS_state = 2;	// stay
+		// 	break;
+		// 	case 3:	// un-halt and start timer
+		// 		run_active_safety(pi, ultrasonicHdl);		// only used to print ultrasonic data
+		// 		haltFlag = 0;
+		// 		AS_timer++;
+		// 		printf("AS_TIMER: %d\n", AS_timer);
+		// 		if (AS_timer > 12) {
+		// 			AS_timer = 0;	// clear timer
+		// 			if (run_active_safety(pi, ultrasonicHdl))
+		// 				AS_state = 1;	// if obstacle is still present, move to state 1
+		// 			else
+		// 				AS_state = 0;	// if obstacle is not present, move to state 0
+		// 		} else
+		// 			AS_state = 3;	// stay
+		// 	break;
+		// 	}
+		// }
 
-		if (haltFlag) {
-			controlledAccelValue = 0;
-			controlledBrakeValue = 100;
-			// brake
-		} else {
-			controlledAccelValue = accelValue;
-			controlledBrakeValue = brakeValue;
-		}
+		// if (haltFlag) {
+		// 	controlledAccelValue = 0;
+		// 	controlledBrakeValue = 100;
+		// 	// brake
+		// } else {
+		// 	controlledAccelValue = accelValue;
+		// 	controlledBrakeValue = brakeValue;
+		// }
 
-		printf("haltFlag: %d\n", haltFlag);
+		// printf("haltFlag: %d\n", haltFlag);
 		
 		// DO MAIN FUNCTIONS HERE
-		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
+		controlledAccelValue = accelValue;
+		controlledBrakeValue = brakeValue;
+
+		// AUTOPILOT
 		lidarDist = run_lidar(buttons2, pi, lidarHdl);
-		if (brakeValue == 0)
+		if (autopilot_active())
 		{
+			controlledAccelValue = calculate_cruise(lidarDist);
 			controlledBrakeValue = calculate_cruise_breaks(lidarDist);
 		}
-		
-		if (controlledBrakeValue == 100)
-		{
-			controlledAccelValue = 0;
-		}
 
-		run_acceleration(pi, controlledAccelValue, gear, lidarDist);
-		
+		if (controlledBrakeValue > 0) { controlledAccelValue = 0; }
+
+		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
+		run_acceleration(pi, controlledAccelValue, gear);
 
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
@@ -255,7 +256,7 @@ int main()
 		run_reverse_lights(gear, pi, lightingHdl);
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
-		// run_GPS(pi, GPSHdl);
+		run_GPS(pi, GPSHdl);
 		
 
 
