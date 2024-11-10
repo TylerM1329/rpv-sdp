@@ -21,9 +21,9 @@
 
 using namespace std;
 
+#define PI 3.14159265
 
 int cm_buffer = 200;
-
 
 const int drive_RPWM = 17;
 const int drive_LPWM = 27;
@@ -37,9 +37,7 @@ const int steering_EN = 19;
 int cruise_activated = 0;
 int cruise_toggle = 0;
 
-
 int MAX_SPEED = 100;
-
 
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
@@ -62,24 +60,19 @@ int run_camera_pan(int direction) {
 
 void run_acceleration(int pi, int intAccel, int gear)
 {
-
-	if (intAccel && !autopilot_active())
-	{
-		intAccel = MAX_SPEED;
-	}
-
-	// if (cruise_activated) { // adjust intAccel based on what is in front of car
-	// 	if (gear != 1) { // don't cruise control when in reverse gear
-	// 		intAccel = map(intAccel, 0, 100, 0, 255);
-	// 		gear = 0;
-	// 		cout << intAccel;
-	// 		cout << "\n";
-	// 	}
-	// }
-	// else 
+	// Calculate acceleration
 	if (intAccel)
 	{
-		intAccel = map(intAccel, 0, 100, 0, 255);
+		// Autopilot, control acceleration automatically based on lidar
+		if (autopilot_active())
+		{
+			intAccel = map(intAccel, 0, 100, 0, 255);
+		}
+		// Manual, set acceleration to max speed
+		else
+		{
+			intAccel = map(MAX_SPEED, 0, 100, 0, 255);
+		}
 	}
 
 	if (intAccel) {
@@ -282,24 +275,29 @@ void run_headlights(int toggle, int piHandle, int lightingHandle) {
 	}
 }
 
-void run_steering(int deadband, int piHandle, int targetPos, int currentPos, int steeringDutyCycle) {
+void run_steering(int deadband, int piHandle, int targetPos, int currentPos) {
+	int steeringDutyCycle = 255; 	// 0~255 PWM DC for steering. too high of a value will cause 
+									// steering to oscillate around setpoint. 180 good full charge
+
+	targetPos = map(targetPos, 0, 100, 90, 417);
+
 	if ((currentPos <= targetPos + deadband) && (currentPos >= targetPos - deadband)) {
-			printf("Steering: CENTERED\n");
-			set_PWM_dutycycle(piHandle, steering_RPWM, 0);
-			set_PWM_dutycycle(piHandle, steering_LPWM, 0);
-    	}
+		printf("Steering: CENTERED\n");
+		set_PWM_dutycycle(piHandle, steering_RPWM, 0);
+		set_PWM_dutycycle(piHandle, steering_LPWM, 0);
+    }
 
-    	if (currentPos > targetPos + deadband) {
-			printf("Steering: TURNING RIGHT\n");
-			set_PWM_dutycycle(piHandle, steering_RPWM, steeringDutyCycle);
-			set_PWM_dutycycle(piHandle, steering_LPWM, 0);
-    	}
+	else if (currentPos > targetPos + deadband) {
+		printf("Steering: TURNING RIGHT\n");
+		set_PWM_dutycycle(piHandle, steering_RPWM, steeringDutyCycle);
+		set_PWM_dutycycle(piHandle, steering_LPWM, 0);
+	}
 
-    	if (currentPos < targetPos - deadband) {
-			printf("Steering: TURNING LEFT\n");
-			set_PWM_dutycycle(piHandle, steering_RPWM, 0);
-			set_PWM_dutycycle(piHandle, steering_LPWM, steeringDutyCycle);
-    	}
+	else if (currentPos < targetPos - deadband) {
+		printf("Steering: TURNING LEFT\n");
+		set_PWM_dutycycle(piHandle, steering_RPWM, 0);
+		set_PWM_dutycycle(piHandle, steering_LPWM, steeringDutyCycle);
+	}
 }
 
 int run_active_safety(int piHandle, int ultrasonicHandle) {
@@ -331,8 +329,7 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 		cruise_toggle = false;
 	}
 
-
-	  uint16_t distance;
+	uint16_t distance;
     char data[2];  // Array to store the 2 bytes of distance
 
     // Read 2 bytes from the lidar sensor
@@ -343,7 +340,6 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 
 		if (!cruise_activated) {return -1;}
 		
-
 	  }
 	  else
 	  {
@@ -356,32 +352,47 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
     return distance;  // Return the distance if you need it
 }
 
-int run_GPS(int piHandle, int GPSHandle) {
+double* run_GPS(int piHandle, int GPSHandle) {
 	uint16_t Loca;
     char data[11];  // Array to store the 2 bytes of Loca
+	static double results[3];
 
 	int bytesRead = i2c_read_device(piHandle, GPSHandle, data, 11);
 		if (bytesRead == 11) {
         // Process latitude (first 4 bytes)
         long lat = (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0];
-        cout << "Latitude: " << lat / 1000000.0 << std::endl;
+		lat /= 1000000.0;
+        // cout << "Latitude: " << lat << std::endl;
 
         // Process longitude (next 4 bytes)
         long lon = (data[7] << 24) | (data[6] << 16) | (data[5] << 8) | data[4];
-        cout << "Longitude: " << lon / 1000000.0 << std::endl;
+		lon /= 1000000.0;
+        // cout << "Longitude: " << lon << std::endl;
 
         // Process course (next 2 bytes)
         int course = (data[9] << 8) | data[8];
-        cout << "Course: " << course / 100.0 << " degrees" << std::endl;
+		course /= 100.0;
+
+        // cout << "Course: " << course << " degrees" << std::endl;
 
         // Process control bit (last byte)
         int ctrl = data[10];
-        cout << "Control: " << ctrl << std::endl;
+        // cout << "Control: " << ctrl << std::endl;
+
+		results[0] = lat;
+		results[1] = lon;
+		results[2] = course;
     } else {
         cout << "Error: Expected 11 bytes, but got " << bytesRead << " bytes." << std::endl;
+
+		results[0] = 0;
+		results[1] = 0;
+		results[2] = 0;
     }
 
-    return 0;  // Return success
+	
+
+    return results;  // Return success
 }
  
 void get_network_options(char *ipAddr, int &port) {
@@ -581,11 +592,17 @@ int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &light
 	GPSHandle = i2c_open(piHandle, 1, GPSAddr, 0);
 	if (GPSHandle < 0) {
 		status = 0;
-		printf("[!] Failed to init GPS (Telementary)!\n");
+		printf("Failed to init GPS (Telementary)!\n");
 	} else
-		printf("> GPS (Telementary) subsystem \t\tINIT OK\n");
+		printf("> GPS (Telementary) subsystem \tINIT OK\n");
 
 	//----------------------------------------------------------------------------------------------------/
+
+	if (status == 0)
+	{
+		printf("[!] Type 'init pigpiod' before running program!\n");
+	}
+
 	set_mode(piHandle, steering_EN, PI_OUTPUT); // steering_EN = 19
 	gpio_write(piHandle, steering_EN, 1); // steering_EN = 19
 	return status;
@@ -602,9 +619,11 @@ void disable_motors(int pi) { // disable motors. gets overridden if other run fu
 
 
 // Returns a cruise value of 1-100, using accel and lidar info
-int calculate_cruise(int cm_until_impact) {
+int calculate_cruise(int cm_until_impact) 
+{
 	// Calculate the estimated new speed based on time to impact
 	float new_speed = 0.25 * cm_until_impact;
+
 
 	// Ensure new_speed does not exceed max_speed
 	if (new_speed > MAX_SPEED) {
@@ -612,6 +631,7 @@ int calculate_cruise(int cm_until_impact) {
   	}
 
 	// Prevents tailgaiting by cm_buffer amount
+		// Prevents tailgaiting by cm_buffer amount
 
 	if (cm_until_impact <= cm_buffer) {
 		new_speed = 0;
@@ -620,9 +640,12 @@ int calculate_cruise(int cm_until_impact) {
 		if (new_speed < 0)
 		new_speed = 0;
 	}
+	else if (MAX_SPEED >= 40 && cm_until_impact <= cm_buffer * 1.5) {
+		new_speed /= 2;
+
+	}
 
 	// Return the average speed
-
 	cout << "Cruise Value: " << new_speed << " speed" << endl;
 	return (new_speed);
 }
@@ -643,8 +666,100 @@ int calculate_cruise_breaks(int lidarDist)
 	}
 }
 
+int calculate_autopilot_steering(double* gps_data, double* destination_data)
+{
+	return 50;
+	
+    // Extract GPS data
+    double current_lat = gps_data[0];
+    double current_lon = gps_data[1];
+    double current_course_angle = gps_data[2]; // Current course angle from GPS in degrees
+
+    // Extract destination data
+    double destination_lat = destination_data[0];
+    double destination_lon = destination_data[1];
+
+    // Convert degrees to radians for trigonometric calculations
+    double current_lat_rad = current_lat * PI / 180.0;
+    double current_lon_rad = current_lon * PI / 180.0;
+    double destination_lat_rad = destination_lat * PI / 180.0;
+    double destination_lon_rad = destination_lon * PI / 180.0;
+
+    // Calculate the difference in longitude
+    double delta_lon = destination_lon_rad - current_lon_rad;
+
+    // Calculate the desired bearing angle (in radians) to the destination
+    double y = sin(delta_lon) * cos(destination_lat_rad);
+    double x = cos(current_lat_rad) * sin(destination_lat_rad) - 
+               sin(current_lat_rad) * cos(destination_lat_rad) * cos(delta_lon);
+    double desired_bearing_rad = atan2(y, x);
+
+    // Convert bearing from radians to degrees
+    double desired_bearing = fmod((desired_bearing_rad * 180.0 / PI) + 360.0, 360.0);
+
+    // Calculate the difference between the desired bearing and the current course angle
+    double bearing_diff = desired_bearing - current_course_angle;
+
+    // Normalize the difference to the range [-180, 180]
+    if (bearing_diff > 180) {
+        bearing_diff -= 360;
+    } else if (bearing_diff < -180) {
+        bearing_diff += 360;
+    }
+
+    // Determine steering value
+    int steerValue = 50; // Default to center steering (50)
+
+    if (bearing_diff > 10) {
+        // Turn right if bearing difference is positive and significant
+        steerValue = 0; // Right steering
+    } else if (bearing_diff < -10) {
+        // Turn left if bearing difference is negative and significant
+        steerValue = 100; // Left steering
+    } else {
+        // Keep steering centered if the difference is minimal
+        steerValue = 50; // Center steering
+    }
+
+    // Output the calculated information for debugging purposes
+    cout << "GPS INFO:    Latitude: " << current_lat << "  Longitude: " << current_lon << "  Course Angle: " << current_course_angle << "\n";
+    cout << "DESTINATION: Latitude: " << destination_lat << "  Longitude: " << destination_lon << "\n";
+    cout << "Desired Bearing: " << desired_bearing << "\n";
+    cout << "Bearing Difference: " << bearing_diff << "\n";
+    cout << "Calculated Steering Value: " << steerValue << "\n";
+
+    return steerValue;
+}
+
+
+
 
 bool autopilot_active()
 {
 	return cruise_activated;
+}
+
+
+int run_autopilot(double* gps_data, double* destination_data)
+{
+	// * Need to move until destination is reached, then do calculate_cruise_breaks(0);
+	// Need to calculate steering based on GPS coordinates and destination coordinates
+	// * Stop when destination reached.
+
+	// If all destination info is -1, the end of the course has been reached. Break and stop.
+	if (destination_data[0] == -1 && destination_data[1] == -1 && destination_data[2] == -1)
+	{
+		cruise_activated = false;
+		cout << "AUTOPILOT FINISHED! \n";
+		return 0; // +0 will be added to gps_destination_counter, keeping it at the same point
+	}
+	
+
+	if (int(gps_data[0]) == int(destination_data[0]) && int(gps_data[1]) == int(destination_data[1]))
+	{
+		return 1; // +1 will be added to gps_destination_counter, starting the next point
+	}
+
+
+	return 0; // +0 will be added to gps_destination_counter, keeping it at the same point
 }
