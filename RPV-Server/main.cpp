@@ -40,6 +40,17 @@ int GPSHdl = 0;							// var to hold GPS Sensor (Telementary) subsystem handle
 const int brakeRelaxed = 2050;			// var to hold servo position that relaxes brake
 const int brakeFull = 2250;				// var to hold servo position that brakes fully
 
+double destination_data[6][3] = {		// 2D array to hold GPS datapoints [longitude, latitude, course angle]
+	{34,117,332}, 	// point 1
+	{33,116,0}, 	// point 2
+	{2,2,2}, 		// point 3
+	{3,3,3}, 		// point 4
+	{4,2,0},		// point 5
+	{-1,-1,-1}		// point end (must be [-1,-1,-1])
+};
+
+int gps_destination_counter = 0;
+
 
 int main()
 {
@@ -69,8 +80,7 @@ int main()
 	char spi_rx[3];								// array to hold received SPI data
 	int adc_data = 0;							// var to hold adc value
 	int deadband = 11;							// var to hold deadband value for steering logic
-	int steeringDutyCycle = 255;				// 0~255 PWM DC for steering. too high of a value will cause 
-												// steering to oscillate around setpoint. 180 good full charge
+
 	bool dataReady = 0;							// flag used to tell parsing logic if data coming in is good
 	char usSensors[4];							// array to hold received ultrasonic sensor distance data
 												// 4 bytes (1 byte for each sensor)
@@ -235,7 +245,6 @@ int main()
 
 		// AUTOPILOT
 		lidarDist = run_lidar(buttons2, pi, lidarHdl);
-
 		if (autopilot_active())
 		{
 			controlledAccelValue = calculate_cruise(lidarDist);
@@ -247,24 +256,39 @@ int main()
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
 		run_acceleration(pi, controlledAccelValue, gear);
 
-
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
 		spi_xfer(pi, adcHdl, spi_tx, spi_rx, 3);
 		adc_data = (spi_rx[1] << 8) | spi_rx[2] & 0x3FF;
 		printf("Actual steering position: %d\n", adc_data);
-		run_steering(deadband, pi, map(steerValue, 0, 100, 90, 417), adc_data, steeringDutyCycle);
+
+		if (autopilot_active())
+		{
+			static double* current_GPS_location[3] = {run_GPS(pi, GPSHdl)};
+
+			// Counter will increase when GPS's longitude and latitude line up with destination_data's
+			gps_destination_counter += run_autopilot(*current_GPS_location, destination_data[gps_destination_counter]);
+			cout << "gps_destination_counter: " << gps_destination_counter << "\n";
+
+			// Steer the car based on the course angle and distanceS
+			steerValue = calculate_autopilot_steering(*current_GPS_location, destination_data[gps_destination_counter]);
+		}
+
+
+		run_steering(deadband, pi, steerValue, adc_data);
 		run_brake_lights(controlledBrakeValue, pi, lightingHdl);
 		run_reverse_lights(gear, pi, lightingHdl);
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
-		run_GPS(pi, GPSHdl);
 
+		
 		printf("\n");
 		usleep(50*1000);
     }
     return 0;
 }
+
+
 
 void signal_callback_handler(int signum) {
    cout << "CTRL+C caught! Terminating..." << signum << endl;
@@ -275,14 +299,14 @@ void signal_callback_handler(int signum) {
    i2c_close(pi, lightingHdl);
    i2c_close(pi, ultrasonicHdl);
    i2c_close(pi, lidarHdl);
-   i2c_close(pi, GPSAddr);
+   i2c_close(pi, GPSHdl);
    spi_close(pi, adcHdl);
 
    pigpio_stop(pi);
 
    close(clientSocket);
 
-   system("sudo killall pigpiod");
+   //system("sudo killall pigpiod");
    
    // Terminate program
    exit(signum);
