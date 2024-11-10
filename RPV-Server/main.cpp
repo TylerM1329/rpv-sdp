@@ -235,6 +235,7 @@ int main()
 
 		// AUTOPILOT
 		lidarDist = run_lidar(buttons2, pi, lidarHdl);
+
 		if (autopilot_active())
 		{
 			controlledAccelValue = calculate_cruise(lidarDist);
@@ -245,6 +246,7 @@ int main()
 
 		// CONTROL ACCELERATION, STEERING, SERVOS, AND SAMPLE ADC
 		run_acceleration(pi, controlledAccelValue, gear);
+
 
 		set_servo_pulsewidth(pi, camera_servo, map(run_camera_pan(buttons1), 3, 25, 600, 2400));
 		set_servo_pulsewidth(pi, brake_servo, map(controlledBrakeValue, 0, 100, brakeRelaxed, brakeFull)); // relaxed | braking 2190 old bat
@@ -257,8 +259,6 @@ int main()
 		run_turn_signals(buttons2, pi, lightingHdl);
 		run_headlights(buttons2, pi, lightingHdl);
 		run_GPS(pi, GPSHdl);
-		
-
 
 		printf("\n");
 		usleep(50*1000);

@@ -21,7 +21,9 @@
 
 using namespace std;
 
+
 int cm_buffer = 200;
+
 
 const int drive_RPWM = 17;
 const int drive_LPWM = 27;
@@ -35,7 +37,9 @@ const int steering_EN = 19;
 int cruise_activated = 0;
 int cruise_toggle = 0;
 
+
 int MAX_SPEED = 100;
+
 
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
@@ -58,6 +62,7 @@ int run_camera_pan(int direction) {
 
 void run_acceleration(int pi, int intAccel, int gear)
 {
+
 	if (intAccel && !autopilot_active())
 	{
 		intAccel = MAX_SPEED;
@@ -326,7 +331,8 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 		cruise_toggle = false;
 	}
 
-	uint16_t distance;
+
+	  uint16_t distance;
     char data[2];  // Array to store the 2 bytes of distance
 
     // Read 2 bytes from the lidar sensor
@@ -337,6 +343,7 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 
 		if (!cruise_activated) {return -1;}
 		
+
 	  }
 	  else
 	  {
@@ -599,13 +606,13 @@ int calculate_cruise(int cm_until_impact) {
 	// Calculate the estimated new speed based on time to impact
 	float new_speed = 0.25 * cm_until_impact;
 
-
 	// Ensure new_speed does not exceed max_speed
 	if (new_speed > MAX_SPEED) {
     	new_speed = MAX_SPEED;
   	}
 
 	// Prevents tailgaiting by cm_buffer amount
+
 	if (cm_until_impact <= cm_buffer) {
 		new_speed = 0;
 
@@ -615,6 +622,7 @@ int calculate_cruise(int cm_until_impact) {
 	}
 
 	// Return the average speed
+
 	cout << "Cruise Value: " << new_speed << " speed" << endl;
 	return (new_speed);
 }
