@@ -17,11 +17,13 @@
 #include <signal.h>
 #include "functions.h"
 #include <math.h>
+#include <cmath>
 
 using namespace std;
 
-const int MAX_SPEED = 100;
-int cm_buffer = 150;
+
+int cm_buffer = 200;
+
 
 const int drive_RPWM = 17;
 const int drive_LPWM = 27;
@@ -34,6 +36,10 @@ const int steering_EN = 19;
 
 int cruise_activated = 0;
 int cruise_toggle = 0;
+
+
+int MAX_SPEED = 100;
+
 
 
 long map(long x, long in_min, long in_max, long out_min, long out_max) {
@@ -54,19 +60,28 @@ int run_camera_pan(int direction) {
 	return currPos;
 }
 
-void run_acceleration(int pi, int intAccel, int gear, int lidarDist)
+void run_acceleration(int pi, int intAccel, int gear)
 {
-	int cm_until_impact = 80;
-	if (cruise_activated) { // adjust intAccel based on what is in front of car
-		if (gear != 1) { // don't cruise control when in reverse gear
-			// y = x * (1 - k / 800)
-			intAccel = map(calculate_cruise(lidarDist), 0, 100, 0, 255);
-			gear = 0;
-			cout << intAccel;
-			cout << "\n";
-		}
+
+	if (intAccel && !autopilot_active())
+	{
+		intAccel = MAX_SPEED;
 	}
-	int localAccel;
+
+	// if (cruise_activated) { // adjust intAccel based on what is in front of car
+	// 	if (gear != 1) { // don't cruise control when in reverse gear
+	// 		intAccel = map(intAccel, 0, 100, 0, 255);
+	// 		gear = 0;
+	// 		cout << intAccel;
+	// 		cout << "\n";
+	// 	}
+	// }
+	// else 
+	if (intAccel)
+	{
+		intAccel = map(intAccel, 0, 100, 0, 255);
+	}
+
 	if (intAccel) {
 		if (gear == 1) {						// REVERSE
 			printf("Drive motor engaged\n");
@@ -162,18 +177,18 @@ void run_brake_lights(int brakeValue, int piHandle, int lightingHandle) {
     static bool brakeFlag1 = 1;
     static bool brakeFlag2 = 1;
     if (brakeValue > 50) {					// 60 is when brake actually starts to grab
-			brakeFlag2 = 1;						// brake flags used to ensure I2C commands are issued only once
-			if (brakeFlag1) {
-				i2c_write_byte(piHandle, lightingHandle, 6);	
-				brakeFlag1 = 0;
-			}
-		} else {
-			brakeFlag1 = 1;
-			if (brakeFlag2) {
-				i2c_write_byte(piHandle, lightingHandle, 7);
-				brakeFlag2 = 0;
-			}
+		brakeFlag2 = 1;						// brake flags used to ensure I2C commands are issued only once
+		if (brakeFlag1) {
+			i2c_write_byte(piHandle, lightingHandle, 6);	
+			brakeFlag1 = 0;
 		}
+	} else {
+		brakeFlag1 = 1;
+		if (brakeFlag2) {
+			i2c_write_byte(piHandle, lightingHandle, 7);
+			brakeFlag2 = 0;
+		}
+	}
 }
 
 void run_reverse_lights(int gear, int piHandle, int lightingHandle) {
@@ -315,10 +330,9 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 	{
 		cruise_toggle = false;
 	}
-	if (!cruise_activated)
-		return -1; // Don't calculate cruise control not enabled.
-	
-	uint16_t distance;
+
+
+	  uint16_t distance;
     char data[2];  // Array to store the 2 bytes of distance
 
     // Read 2 bytes from the lidar sensor
@@ -326,17 +340,50 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 	  if (bytesRead == 2) {
 		distance = (data[1] << 8) | data[0];
 		cout << "Lidar Distance: " << distance << " cm" << std::endl;
-		cout << "Cruise Value: " << calculate_cruise(distance) << " speed" << endl;
+
+		if (!cruise_activated) {return -1;}
+		
+
 	  }
 	  else
 	  {
-		cout << "Didn't recieve 2 bytes!\n";
+		cout << "Lidar failed. Reinitializing I2C handle...\n";
+		i2c_close(piHandle, lidarHandle);
+		lidarHandle = i2c_open(piHandle, 1, 0x20, 0);
+		return -1;
 	  }
 
     return distance;  // Return the distance if you need it
 }
 
+int run_GPS(int piHandle, int GPSHandle) {
+	uint16_t Loca;
+    char data[11];  // Array to store the 2 bytes of Loca
 
+	int bytesRead = i2c_read_device(piHandle, GPSHandle, data, 11);
+		if (bytesRead == 11) {
+        // Process latitude (first 4 bytes)
+        long lat = (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0];
+        cout << "Latitude: " << lat / 1000000.0 << std::endl;
+
+        // Process longitude (next 4 bytes)
+        long lon = (data[7] << 24) | (data[6] << 16) | (data[5] << 8) | data[4];
+        cout << "Longitude: " << lon / 1000000.0 << std::endl;
+
+        // Process course (next 2 bytes)
+        int course = (data[9] << 8) | data[8];
+        cout << "Course: " << course / 100.0 << " degrees" << std::endl;
+
+        // Process control bit (last byte)
+        int ctrl = data[10];
+        cout << "Control: " << ctrl << std::endl;
+    } else {
+        cout << "Error: Expected 11 bytes, but got " << bytesRead << " bytes." << std::endl;
+    }
+
+    return 0;  // Return success
+}
+ 
 void get_network_options(char *ipAddr, int &port) {
 	int source = 0;
 connectionInput:
@@ -391,12 +438,18 @@ userInput:
 		}
 	}
 userInput2:
+//-----------------------------------------------------------------------------------------------------------*
 	// DEPRECIATED CODE. NO LONGER WORKS AND WILL STAND STILL IF SET TO 1
 	// cout << "Active Safety: 1 for ON, 0 for OFF: ";
 	// cin >> userOption;
-	userOption = 0;
+	userOption = 2;
 	switch (userOption)
 	{
+		case 2: {
+			ASoption = 0;
+			cout << "> Active Safety DEPRECIATED" << endl;
+			break;
+		}
 		case 1: {
 			ASoption = 1;
 			cout << "> Active Safety ENABLED" << endl;
@@ -412,9 +465,25 @@ userInput2:
 			goto userInput2;
 		}
 	}
+//-----------------------------------------------------------------------------------------------------------*
+	cout << "\nSet max speed (1-100): ";
+	cin >> userOption;
+
+	while(userOption <= 0)
+	{
+		cout << "\nSet max speed (1-100): ";
+		cin >> userOption;
+	}
+
+	if (userOption > 100) {userOption = 100;}
+	MAX_SPEED = userOption;
+
+	cout << "Speed set to ";
+	cout << userOption << "\n";
 }
 
-void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2, int &lidarDist) {
+
+void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2) {
 	char *token;
 	if (dataReady) {							// if data is ready (marked above) then proceed to parse
 			// parse fwd/rvs
@@ -426,9 +495,11 @@ void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue
 			// parse acceleration
 			token = strtok(NULL, "-");
 			accelValue = atoi(token);
+			if (accelValue > 0) { cruise_activated = false; }
 			// parse braking
 			token = strtok(NULL, "-");
 			brakeValue = atoi(token);
+			if (brakeValue > 0) { cruise_activated = false; }
 			// parse button set 1
 			token = strtok(NULL, "-");
 			buttons1 = atoi(token);
@@ -459,7 +530,7 @@ int get_cv_flag(int enable, char buffer[]) {	// HARDCODED INDEX IN BUFFER!
 
 
 // zzz
-int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &lightingHandle, int lightingAddr, int &adcHandle, int &serialHandle, int &lidarHandle, int lidarAddr) {
+int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &lightingHandle, int lightingAddr, int &adcHandle, int &serialHandle, int &lidarHandle, int lidarAddr, int& GPSHandle, int GPSAddr) {
 	bool status = 1;
 	piHandle = pigpio_start(NULL, NULL);
 	if (piHandle < 0) {
@@ -504,6 +575,16 @@ int init_IO(int &piHandle, int &ultrasonicHandle, int ultrasonicAddr, int &light
 		printf("[!] Failed to init lidar!\n");
 	} else
 		printf("> lidar subsystem \t\tINIT OK\n");
+
+	//----------------------------------------------------------------------------------------------------/
+	
+	GPSHandle = i2c_open(piHandle, 1, GPSAddr, 0);
+	if (GPSHandle < 0) {
+		status = 0;
+		printf("[!] Failed to init GPS (Telementary)!\n");
+	} else
+		printf("> GPS (Telementary) subsystem \t\tINIT OK\n");
+
 	//----------------------------------------------------------------------------------------------------/
 	set_mode(piHandle, steering_EN, PI_OUTPUT); // steering_EN = 19
 	gpio_write(piHandle, steering_EN, 1); // steering_EN = 19
@@ -529,8 +610,10 @@ int calculate_cruise(int cm_until_impact) {
 	if (new_speed > MAX_SPEED) {
     	new_speed = MAX_SPEED;
   	}
+
 	// Prevents tailgaiting by cm_buffer amount
-	else if (cm_until_impact <= cm_buffer) {
+
+	if (cm_until_impact <= cm_buffer) {
 		new_speed = 0;
 
 		// No negative speed allowed
@@ -539,5 +622,29 @@ int calculate_cruise(int cm_until_impact) {
 	}
 
 	// Return the average speed
+
+	cout << "Cruise Value: " << new_speed << " speed" << endl;
 	return (new_speed);
+}
+
+int calculate_cruise_breaks(int lidarDist)
+{	
+	if (!cruise_activated) {return 0;}
+
+	if (lidarDist > 0 && lidarDist <= 120 + MAX_SPEED)
+	{
+		cout << "\nYES BREAKS\n";
+		return 100;
+	}
+	else
+	{
+		cout << "\nNO BREAKS\n";
+		return 0;
+	}
+}
+
+
+bool autopilot_active()
+{
+	return cruise_activated;
 }

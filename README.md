@@ -1,4 +1,7 @@
 ### Remote Pilotless Vehicle EGR4820/4830 (Senior Design Project) at California State Polytechnic University, Pomona
+
+This branch is dedicated to the testing purposes of this project
+
 Some of the source code was reused from previous years, and future teams may reuse code from this repository. It contains the source code for the various systems used in the operation of the vehicle.
 
 ### Directories and their usage:
