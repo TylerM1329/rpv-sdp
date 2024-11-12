@@ -352,48 +352,45 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
     return distance;  // Return the distance if you need it
 }
 
+
 double* run_GPS(int piHandle, int GPSHandle) {
-	uint16_t Loca;
-    char data[11];  // Array to store the 2 bytes of Loca
-	static double results[3];
+    static double results[3];
+    char data[10];  // Array to store 10 bytes of data
+    float latitude;
+    float longitude;
+    int16_t course_angle;
 
-	int bytesRead = i2c_read_device(piHandle, GPSHandle, data, 11);
-		if (bytesRead == 11) {
-        // Process latitude (first 4 bytes)
-        long lat = (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0];
-		lat /= 1000000.0;
-        // cout << "Latitude: " << lat << std::endl;
+    // Read 10 bytes from the I2C device
+    int bytesRead = i2c_read_device(piHandle, GPSHandle, data, 10);
+    if (bytesRead == 10) {
+        // Parse the data correctly
+        memcpy(&latitude, &data[0], 4);
+        memcpy(&longitude, &data[4], 4);
+        memcpy(&course_angle, &data[8], 2);
 
-        // Process longitude (next 4 bytes)
-        long lon = (data[7] << 24) | (data[6] << 16) | (data[5] << 8) | data[4];
-		lon /= 1000000.0;
-        // cout << "Longitude: " << lon << std::endl;
+        double course = static_cast<double>(course_angle) / 100.0; // Convert to double and scale back
 
-        // Process course (next 2 bytes)
-        int course = (data[9] << 8) | data[8];
-		course /= 100.0;
+        // Store results
+        results[0] = static_cast<double>(latitude);
+        results[1] = static_cast<double>(longitude);
+        results[2] = course;
 
-        // cout << "Course: " << course << " degrees" << std::endl;
-
-        // Process control bit (last byte)
-        int ctrl = data[10];
-        // cout << "Control: " << ctrl << std::endl;
-
-		results[0] = lat;
-		results[1] = lon;
-		results[2] = course;
+        // Debug output
+        printf("Latitude: %.6f, Longitude: %.6f, Course: %.2f\n", results[0], results[1], results[2]);
     } else {
-        cout << "Error: Expected 11 bytes, but got " << bytesRead << " bytes." << std::endl;
+        // Error handling for incorrect byte count
+        fprintf(stderr, "Error: Expected 10 bytes, but got %d\n", bytesRead);
 
-		results[0] = 0;
-		results[1] = 0;
-		results[2] = 0;
+        results[0] = 0.0;
+        results[1] = 0.0;
+        results[2] = 0.0;
     }
 
-	
-
-    return results;  // Return success
+    return results;
 }
+
+
+
  
 void get_network_options(char *ipAddr, int &port) {
 	int source = 0;
@@ -668,8 +665,6 @@ int calculate_cruise_breaks(int lidarDist)
 
 int calculate_autopilot_steering(double* gps_data, double* destination_data)
 {
-	return 50;
-	
     // Extract GPS data
     double current_lat = gps_data[0];
     double current_lon = gps_data[1];
