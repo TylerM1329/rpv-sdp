@@ -318,7 +318,7 @@ int run_active_safety(int piHandle, int ultrasonicHandle) {
 }
 
 
-int run_lidar(int toggle, int piHandle, int lidarHandle) {
+int run_lidar(int toggle, int piHandle, int lidarHandle, int lidarAddr) {
 	if (cruise_toggle == false && toggle == 5)
 	{
 		cruise_activated = !cruise_activated; // More elegant if-else statement for toggling cruise_control
@@ -345,7 +345,7 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 	  {
 		cout << "Lidar failed. Reinitializing I2C handle...\n";
 		i2c_close(piHandle, lidarHandle);
-		lidarHandle = i2c_open(piHandle, 1, 0x20, 0);
+		lidarHandle = i2c_open(piHandle, 1, lidarAddr, 0);
 		return -1;
 	  }
 
@@ -353,7 +353,7 @@ int run_lidar(int toggle, int piHandle, int lidarHandle) {
 }
 
 
-double* run_GPS(int piHandle, int GPSHandle) {
+double* run_GPS(int piHandle, int GPSHandle, int GPSAddr) {
     static double results[3];
     char data[10];  // Array to store 10 bytes of data
     float latitude;
@@ -376,7 +376,7 @@ double* run_GPS(int piHandle, int GPSHandle) {
         results[2] = course;
 
         // Debug output
-        printf("Latitude: %.6f, Longitude: %.6f, Course: %.2f\n", results[0], results[1], results[2]);
+        // printf("Latitude: %.8f, Longitude: %.8f, Course: %.2f\n", results[0], results[1], results[2]);
     } else {
         // Error handling for incorrect byte count
         fprintf(stderr, "Error: Expected 10 bytes, but got %d\n", bytesRead);
@@ -384,6 +384,11 @@ double* run_GPS(int piHandle, int GPSHandle) {
         results[0] = 0.0;
         results[1] = 0.0;
         results[2] = 0.0;
+
+		cout << "GPS failed. Reinitializing I2C handle...\n";
+		i2c_close(piHandle, GPSAddr);
+		GPSHandle = i2c_open(piHandle, 1, GPSAddr, 0);
+	  
     }
 
     return results;
@@ -637,7 +642,7 @@ int calculate_cruise(int cm_until_impact)
 		if (new_speed < 0)
 		new_speed = 0;
 	}
-	else if (MAX_SPEED >= 40 && cm_until_impact <= cm_buffer * 1.5) {
+	else if (cm_until_impact <= cm_buffer + 0.5 * MAX_SPEED) {
 		new_speed /= 2;
 
 	}
@@ -662,6 +667,7 @@ int calculate_cruise_breaks(int lidarDist)
 		return 0;
 	}
 }
+
 
 int calculate_autopilot_steering(double* gps_data, double* destination_data)
 {
@@ -702,36 +708,31 @@ int calculate_autopilot_steering(double* gps_data, double* destination_data)
         bearing_diff += 360;
     }
 
-    // Determine steering value
-    int steerValue = 50; // Default to center steering (50)
-
-    if (bearing_diff > 10) {
-        // Turn right if bearing difference is positive and significant
-        steerValue = 0; // Right steering
-    } else if (bearing_diff < -10) {
-        // Turn left if bearing difference is negative and significant
-        steerValue = 100; // Left steering
-    } else {
-        // Keep steering centered if the difference is minimal
-        steerValue = 50; // Center steering
-    }
+    // Use map function to get a smoother steering value
+    // Map bearing_diff from [-180, 180] to [0, 100] for smoother control
+    int steerValue = map(static_cast<long>(bearing_diff), -180, 180, 0, 100);
 
     // Output the calculated information for debugging purposes
-    cout << "GPS INFO:    Latitude: " << current_lat << "  Longitude: " << current_lon << "  Course Angle: " << current_course_angle << "\n";
-    cout << "DESTINATION: Latitude: " << destination_lat << "  Longitude: " << destination_lon << "\n";
+    printf("GPS INFO:    Latitude: %.8f, Longitude: %.8f, Course: %.2f\n", current_lat, current_lon, current_course_angle);
+    printf("DESTINATION: Latitude: %.8f, Longitude: %.8f\n", destination_lat, destination_lon);
+
     cout << "Desired Bearing: " << desired_bearing << "\n";
     cout << "Bearing Difference: " << bearing_diff << "\n";
-    cout << "Calculated Steering Value: " << steerValue << "\n";
+    cout << "Mapped Steering Value: " << steerValue << "\n";
 
     return steerValue;
 }
 
 
 
-
 bool autopilot_active()
 {
 	return cruise_activated;
+}
+
+void disable_autopilot()
+{
+	cruise_activated = false;
 }
 
 
@@ -749,12 +750,15 @@ int run_autopilot(double* gps_data, double* destination_data)
 		return 0; // +0 will be added to gps_destination_counter, keeping it at the same point
 	}
 	
-
-	if (int(gps_data[0]) == int(destination_data[0]) && int(gps_data[1]) == int(destination_data[1]))
+	double threshold = 0.00005;
+	if (fabs(gps_data[0] - destination_data[0]) <= threshold && 
+		fabs(gps_data[1] - destination_data[1]) <= threshold)
 	{
+		cout << "Reached destination, moving to next point." << endl;
 		return 1; // +1 will be added to gps_destination_counter, starting the next point
 	}
 
-
 	return 0; // +0 will be added to gps_destination_counter, keeping it at the same point
 }
+
+
