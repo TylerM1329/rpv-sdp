@@ -9,8 +9,8 @@ int setup_TCP_Server(char[], int);
 void run_brake_lights(int, int, int);
 void run_reverse_lights(int, int, int);
 void run_turn_signals(int, int, int);
-int run_lidar(int, int, int);
-double* run_GPS(int, int);
+int run_lidar(int, int, int, int);
+double* run_GPS(int, int, int);
 int run_active_safety(int, int);
 void get_network_options(char*, int&);
 void get_user_options(int&, int&);
@@ -27,4 +27,5 @@ int calculate_cruise_breaks(int);
 bool autopilot_active();
 int calculate_autopilot_steering(double*, double*);
 int run_autopilot(double*, double*);
+void disable_autopilot();
 #endif
