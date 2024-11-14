@@ -25,7 +25,8 @@ int read_GPS_DATA(int, int);
 int calculate_cruise(int cm_until_impact);
 int calculate_cruise_breaks(int);
 bool autopilot_active();
+bool cruise_active();
 int calculate_autopilot_steering(double*, double*);
-int run_autopilot(double*, double*);
-void disable_autopilot();
+int run_autopilot(int, double*, double*);
+void toggle_autopilot(bool);
 #endif
