@@ -37,6 +37,9 @@ const int steering_EN = 19;
 int cruise_activated = 0;
 int cruise_toggle = 0;
 
+int autopilot_activated = 0;
+int autopilot_toggle = 0;
+
 int MAX_SPEED = 100;
 
 
@@ -497,28 +500,35 @@ userInput2:
 
 
 void parse_control_data(int dataReady, char buffer[], int &gear, int &steerValue, int &accelValue, int &brakeValue, int &buttons1, int &buttons2) {
+	// strtok() breaks string (buf) into a series of tokens using "-" delimiter
+	// convert string to int with atoi
 	char *token;
-	if (dataReady) {							// if data is ready (marked above) then proceed to parse
-			// parse fwd/rvs
-			token = strtok(buffer, "-");		// strtok() breaks string (buf) into a series of tokens using "-" delimiter
-			gear = (token[0] == 'R');				// check if byte 0 of token contains R. R = 1, F = 0
+	// If data is ready, then proceed to parse
+	if (dataReady) {							
+			// parse forward / reverse
+			token = strtok(buffer, "-");		
+			gear = (token[0] == 'R');			// check if byte 0 of token contains R. R = 1, F = 0
 			// parse steering
 			token = strtok(NULL, "-");
-			steerValue = atoi(token);				// convert string to int
+			steerValue = atoi(token);
 			// parse acceleration
 			token = strtok(NULL, "-");
 			accelValue = atoi(token);
-			if (accelValue > 0) { cruise_activated = false; }
 			// parse braking
 			token = strtok(NULL, "-");
 			brakeValue = atoi(token);
-			if (brakeValue > 0) { cruise_activated = false; }
 			// parse button set 1
 			token = strtok(NULL, "-");
 			buttons1 = atoi(token);
 			// parse button set 2
 			token = strtok(NULL, "-");
 			buttons2 = atoi(token);
+
+
+			// disable autopilot if accelerating or braking 
+			if(accelValue > 0 || brakeValue > 0) toggle_autopilot(false);
+			// disable autopilot if steering is detected
+			if(autopilot_activated && steerValue != 50) toggle_autopilot(false);
 		}
 }
 
@@ -724,20 +734,42 @@ int calculate_autopilot_steering(double* gps_data, double* destination_data)
 }
 
 
-
-bool autopilot_active()
+bool cruise_active()
 {
 	return cruise_activated;
 }
 
-void disable_autopilot()
+
+
+bool autopilot_active()
 {
-	cruise_activated = false;
+	return autopilot_activated;
 }
 
 
-int run_autopilot(double* gps_data, double* destination_data)
+
+void toggle_autopilot(bool toggle)
 {
+	cruise_activated = toggle;
+	autopilot_activated = toggle;
+}
+
+
+int run_autopilot(int toggle, double* gps_data, double* destination_data)
+{
+	if (autopilot_toggle == false && toggle == 6)
+	{
+		// More elegant if-else statement for toggling cruise_control
+		toggle_autopilot(autopilot_activated = !autopilot_activated);
+		autopilot_toggle = true;
+	}
+	else if(toggle == 0)
+	{
+		autopilot_toggle = false;
+	}
+
+	if (!autopilot_activated) return 0;
+
 	// * Need to move until destination is reached, then do calculate_cruise_breaks(0);
 	// Need to calculate steering based on GPS coordinates and destination coordinates
 	// * Stop when destination reached.
