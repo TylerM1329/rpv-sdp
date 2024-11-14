@@ -42,6 +42,7 @@ const int brakeFull = 2250;				// var to hold servo position that brakes fully
 
 double destination_data[6][3] = {
 	// 2D array to hold GPS datapoints [longitude, latitude, course angle]
+	{34.11463547, -117.70419312},
 	{34.11457825, -117.70418549,0}, // point 1
 	{34.11465073,-117.70417786,0}, 	// point 2
 	{34.11465454,-117.70425415,0}, 	// point 3
@@ -124,7 +125,7 @@ int main()
 		if (TCPRXbyteCount == 0) {
 			cerr << "There was a connection issue. Waiting for reconnection..." << endl;
 			// DISABLE MOTORS IF CONNECTION IS LOST
-			disable_autopilot();
+			toggle_autopilot(false);
 			disable_motors(pi);
 			// ENGAGE BRAKES
 			set_servo_pulsewidth(pi, brake_servo, brakeFull);	// brake fully to prevent rolling down a hill
@@ -244,7 +245,7 @@ int main()
 
 		// AUTOPILOT
 		lidarDist = run_lidar(buttons2, pi, lidarHdl, lidarAddr);
-		if (autopilot_active())
+		if (cruise_active())
 		{
 			controlledAccelValue = calculate_cruise(lidarDist);
 			controlledBrakeValue = calculate_cruise_breaks(lidarDist);
@@ -261,12 +262,10 @@ int main()
 		adc_data = (spi_rx[1] << 8) | spi_rx[2] & 0x3FF;
 		printf("Actual steering position: %d\n", adc_data);
 
+		gps_destination_counter += run_autopilot(buttons2, run_GPS(pi, GPSHdl, GPSAddr), destination_data[gps_destination_counter]);
 		if (autopilot_active())
 		{
-			// static double* current_GPS_location[3] = {run_GPS(pi, GPSHdl, GPSAddr)};
-			
 			// Counter will increase when GPS's longitude and latitude line up with destination_data's
-			gps_destination_counter += run_autopilot(run_GPS(pi, GPSHdl, GPSAddr), destination_data[gps_destination_counter]);
 			cout << "gps_destination_counter: " << gps_destination_counter << "\n";
 
 			// Steer the car based on the course angle and distance
@@ -292,7 +291,7 @@ int main()
 
 void signal_callback_handler(int signum) {
    cout << "CTRL+C caught! Terminating..." << signum << endl;
-   disable_autopilot();
+   toggle_autopilot(false);
    disable_motors(pi);
    set_servo_pulsewidth(pi, brake_servo, brakeRelaxed);	// relax brake servo
    run_brake_lights(0, pi, lightingHdl);				// turn off brake lights
