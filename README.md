@@ -15,3 +15,4 @@ Some of the source code was reused from previous years, and future teams may reu
 
 The remaining files are prototypes or scratchwork that have no immediate use.
 
+## WARNING: GPS only works if you get 4 or more satellites for calculations
