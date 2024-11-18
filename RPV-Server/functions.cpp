@@ -630,43 +630,36 @@ void disable_motors(int pi) { // disable motors. gets overridden if other run fu
 }
 
 
-// Returns a cruise value of 1-100, using accel and lidar info
+// Returns a cruise value of 1-100, using lidar info
 int calculate_cruise(int cm_until_impact) 
 {
-	// Calculate the estimated new speed based on time to impact
-	float new_speed = 0.25 * cm_until_impact;
+    // Scale new_speed proportionally to distance, capped by MAX_SPEED
+    // Non-linear scaling: Speed drops sharply as the distance decreases
+    float new_speed = MAX_SPEED * (float(cm_until_impact) / (cm_buffer + MAX_SPEED));
 
+    // Ensure new_speed does not exceed MAX_SPEED
+    if (new_speed > MAX_SPEED) {
+        new_speed = MAX_SPEED;
+    }
 
-	// Ensure new_speed does not exceed max_speed
-	if (new_speed > MAX_SPEED) {
-    	new_speed = MAX_SPEED;
-  	}
+    // Prevent tailgating: if too close, set speed to 0
+    if (cm_until_impact <= cm_buffer) {
+        new_speed = 0;
+    }
 
-	// Prevents tailgaiting by cm_buffer amount
-		// Prevents tailgaiting by cm_buffer amount
+    // Log the calculated cruise value for debugging
+    cout << "Cruise Value: " << new_speed << " speed" << endl;
 
-	if (cm_until_impact <= cm_buffer) {
-		new_speed = 0;
-
-		// No negative speed allowed
-		if (new_speed < 0)
-		new_speed = 0;
-	}
-	else if (cm_until_impact <= cm_buffer + 0.5 * MAX_SPEED) {
-		new_speed /= 2;
-
-	}
-
-	// Return the average speed
-	cout << "Cruise Value: " << new_speed << " speed" << endl;
-	return (new_speed);
+    // Return the cruise speed as an integer
+    return static_cast<int>(new_speed);
 }
+
 
 int calculate_cruise_breaks(int lidarDist)
 {	
 	if (!cruise_activated) {return 0;}
 
-	if (lidarDist > 0 && lidarDist <= 120 + MAX_SPEED)
+	if (lidarDist <= cm_buffer + MAX_SPEED)
 	{
 		cout << "\nYES BREAKS\n";
 		return 100;
@@ -792,5 +785,3 @@ int run_autopilot(int toggle, double* gps_data, double* destination_data)
 
 	return 0; // +0 will be added to gps_destination_counter, keeping it at the same point
 }
-
-
