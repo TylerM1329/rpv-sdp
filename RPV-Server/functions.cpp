@@ -182,7 +182,7 @@ loop:
 		cout << host << " connected on " << ntohs(client.sin_port) << " connection 2"<<endl;
 	}
 	cout << "EXITING TCP STARTUP" << endl;
-	return clientSocket; / Return the client socket descriptor
+	return clientSocket; // Return the client socket descriptor
 }
 
 // Controls the vehicle's brake lights based on the brake value
