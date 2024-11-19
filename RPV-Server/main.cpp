@@ -36,7 +36,8 @@ int lightingHdl = 0;                         // Lighting I2C handle
 int lidarHdl = 0;                            // Lidar I2C handle
 int GPSHdl = 0;                              // GPS I2C handle
 int clientSocket = 0;                        // TCP client socket
-int adcHdl = 0;				     // SPI ADC handle
+int adcHdl = 0;				     			 // SPI ADC handle
+int serialHdl = 0;							 // Serial handle
 
 
 // Servo and braking constants
@@ -66,7 +67,7 @@ int main() {
 	char serialBuf[serialMaxBytes + 1];           // Receive buffer for serial port
 	int serialRXbyteCount = 0;                    // Byte count of received serial message
 	int serialAvail = 0;                          // Number of available bytes in serial buffer
-	bool serialRXenable = 0;                      // Enable/disable serial communication
+	int serialRXenable = 0;                      // Enable/disable serial communication
 	
 	// Control States
 	bool CVenable = 0;                            // Computer vision lane-keeping option
@@ -188,7 +189,7 @@ int main() {
 				dataReady = 1;	// Mark data as ready
 				// Copy socket buffer data into parsing buffer
 				for (int i = 0; i < serialMaxBytes + 1; i++) {
-		 			preParseBuf[i] = socketBuf[I];
+		 			preParseBuf[i] = socketBuf[i];
 				}
 			} else {
 				dataReady = 0; 	// Mark data as not ready if insufficient bytes or serial is disabled
