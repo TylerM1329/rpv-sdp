@@ -9,6 +9,12 @@ The goal of this project is to build a pilotless vehicle capable of autonomous m
 
 This repository contains the necessary code for the vehicle's various subsystems, as well as tools for interfacing with a simulator or remote control.
 
+### System Setup:
+Follow the [RPV Setup Guide](https://github.com/TylerM1329/rpv-sdp/blob/main/RPV_setup_guide.pdf)
+
+### Building the Project:  
+While editing or updating the code, use `Ctrl + Shift + B` to build the project in `main.cpp` to compile and check for errors.
+
 ## Directory Structure  
 
 ### 1. `RPV-Server`  
@@ -53,7 +59,7 @@ Each subsystem is housed in its respective folder, where the relevant Arduino co
 - **Key Libraries**: `NMEAGPS.h`, `SoftwareSerial.h`, `Wire.h` (I²C communication)
 
 ### 3. Controllers (`TCPSimClient_C`, `TCPSimClient_A`, `TCPSimClient_B`)
-These controllers are used to send control commands to the vehicle's systems, such as steering, speed, and other vehicle functionalities. There are three controller types, each serving different purposes and hardware setups.
+These controllers are used to send control commands to the vehicle's systems, such as steering, speed, and other vehicle functionalities. There are three controller types, each serving different purposes and hardware s.
   
   - **TCPSimClient_A**: 
     - **Purpose**: Interfaces with the VRX simulator and allows control via steering wheel, pedals, and gear shifter.
@@ -72,38 +78,6 @@ These controllers are used to send control commands to the vehicle's systems, su
       - Provides a more interactive and real-time control mechanism for the vehicle, making it the most up-to-date and feature-complete controller in the system.
     - **Limitations**: Only runs on Windows due to the use of libraries that are built specifically for Windows.
     - **Key Libraries**: Visual Studio 2019, Keyboard Input Libraries.
-
-
-## How to Set Up the System
-
-### Hardware Setup
-1. **Vehicle**: The vehicle should be equipped with the necessary hardware components, including the steering mechanism, lidar sensor, GPS module, and motor controllers.
-2. **Raspberry Pi**: Install the RPV-Server code on the Raspberry Pi. This will serve as the central communication hub for the vehicle.
-3. **Arduino**: The Arduino boards should be programmed with the respective subsystem code (e.g., steering, telemetry, ultrasonic) using the Arduino IDE.
-
-### Network Setup
-1. **Connect the Raspberry Pi to a phone hotspot** to enable internet connectivity.
-2. **Connect the router to the Raspberry Pi**. This allows communication between the Raspberry Pi and other devices.
-3. **Connect your development machine to the Raspberry Pi** using SSH or direct network connection for code deployment and debugging.
-
-### Software Setup
-1. **Clone the Repository**:  
-   Clone the repository onto your local machine or Raspberry Pi:  
-   `git clone https://github.com/TylerM1329/rpv-sdp.git`
-
-2. **Install Dependencies**:  
-   - For the server, ensure that you have the required dependencies for the C++ code installed on the Raspberry Pi.
-   - For the Arduino code, ensure the appropriate libraries for I²C communication (`Wire.h`) and GPS functionality (`NMEAGPS.h`) are installed in the Arduino IDE.
-
-3. **Program the Arduino**:  
-   - Open the Arduino IDE and select the appropriate board (e.g., Arduino Uno).
-   - Load the code for each subsystem (e.g., steering, telemetry, ultrasonic) onto the respective Arduino boards.
-
-4. **Run the Server**:  
-   On the Raspberry Pi, start the `RPV-Server` by running the main server script. This will begin handling incoming data from the Arduino subsystems and manage communication with other external systems.
-
-5. **Build the Project**:  
-   While editing or updating the code, use `Ctrl + Shift + B` to build the project in `main.cpp` to compile and check for errors.
 
 ### Communication Protocols
 - **I²C**: Used for communication between the Arduino subsystems and the main Raspberry Pi server.
