@@ -30,22 +30,21 @@ void setup() {
 }
 
 void loop() {
-
 if (activateHazards) {
     // Toggle both left and right turn signals for hazard lights
     digitalWrite(leftTurnSignalPin, !digitalRead(leftTurnSignalPin));
     digitalWrite(rightTurnSignalPin, !digitalRead(rightTurnSignalPin));
-    delay(400); // Delay to control the blink rate of hazard lights
+    delay(400);  // Control the blink rate of hazard lights
   } else {
-    
-    // Handle individual left and right turn signal blinking here
+    // Handle left turn signal
     if (blinkLeftSignal) {
       digitalWrite(leftTurnSignalPin, !digitalRead(leftTurnSignalPin));
       delay(400);
     } else{
       digitalWrite(leftTurnSignalPin, LOW);
     }
-    
+  
+    // Handle right turn signal
     if (blinkRightSignal) {
       digitalWrite(rightTurnSignalPin, !digitalRead(rightTurnSignalPin));
       delay(400);
@@ -53,73 +52,39 @@ if (activateHazards) {
       digitalWrite(rightTurnSignalPin, LOW);
     }
   }
-//  if (activateHazards) {
-//    digitalWrite(leftTurnSignalPin, !digitalRead(leftTurnSignalPin));
-//    digitalWrite(rightTurnSignalPin, !digitalRead(rightTurnSignalPin));
-//    delay(500);
-//  }
-//  
-//  if (blinkLeftSignal) {
-//
-//    digitalWrite(leftTurnSignalPin, !digitalRead(leftTurnSignalPin));
-//    delay(300);
-//  }
-//
-//  if (blinkRightSignal) {
-//
-//    digitalWrite(rightTurnSignalPin, !digitalRead(rightTurnSignalPin));
-//    delay(300);
-//  }
-
-//  if (!blinkLeftSignal){
-//    digitalWrite(leftTurnSignalPin, LOW);}
-//
-//  if (!blinkRightSignal){
-//    digitalWrite(rightTurnSignalPin, LOW);}
-//
-//  if (!activateHazards) {
-//    digitalWrite(leftTurnSignalPin, LOW);
-//    digitalWrite(rightTurnSignalPin, LOW);
-//  }
 }
 
 void receiveEvent(int byteCount) {
-  if (byteCount == 1) { // Expecting a single byte for the action
-    receivedAction = Wire.read(); // Read the received action
+  if (byteCount == 1) {  // Expecting a single byte for the action
+    receivedAction = Wire.read();  // Read the received action
 
     // Process the received action
     switch (receivedAction) {
-      case 0: // Turn on headlights
+      case 0:  // Turn on headlights
         digitalWrite(headlightsPin, HIGH);
         break;
-      case 1: // Turn off headlights
+      case 1:  // Turn off headlights
         digitalWrite(headlightsPin, LOW);
         break;
-      case 2: // Activate left turn signal
-        //digitalWrite(leftTurnSignalPin, HIGH);
+      case 2:  // Toggle left turn signal
         blinkLeftSignal = !blinkLeftSignal;
         break;
-      /*case 3: // Deactivate left turn signal
-        digitalWrite(leftTurnSignalPin, LOW);
-        blinkLeftSignal = false;
-        break;*/
-      case 4: // Activate right turn signal
-        //digitalWrite(rightTurnSignalPin, HIGH);
+      case 4:  // Activate right turn signal
         blinkRightSignal = !blinkRightSignal;
         break;
-      case 5:
+      case 5:  // Toggle hazard lights
         activateHazards = !activateHazards;
         break;
-      case 6: // Apply brake lights
+      case 6:  // Apply brake lights
         digitalWrite(brakeLightsPin, HIGH);
         break;
-      case 7: // Release brake lights
+      case 7:  // Release brake lights
         digitalWrite(brakeLightsPin, LOW);
         break;
-      case 8: // Turn on CV lights
+      case 8:  // Turn on CV lights
         digitalWrite(CVlightsPin, HIGH);
         break;
-      case 9: // Turn off CV lights
+      case 9:  // Turn off CV lights
         digitalWrite(CVlightsPin, LOW);
         break;
       default:
