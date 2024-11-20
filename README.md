@@ -26,7 +26,7 @@ This directory contains the main server software that runs on the Raspberry Pi o
   - `functions.cpp`: Contains helper functions used throughout the server code. These functions are used to handle specific tasks such as communication or sensor data processing.
   - `functions.h`: Header file declaring the functions used in `functions.cpp`. This ensures that these helper functions can be used across different parts of the server code.
 
-### 2. `subsystems`  
+### 2. `Subsystems`  
 This directory contains the Arduino code for the various hardware subsystems of the vehicle, such as steering, telemetry, and ultrasonic sensors. Each subsystem is responsible for a specific function in the vehicle's operation.  
 
 - **Key Subsystems**:
