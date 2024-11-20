@@ -1,23 +1,26 @@
 #include <Wire.h>
 #include <SoftwareSerial.h>
 
-const int TFL_TX_PIN = 10; // Connect this to TF-Luna RX pin
-const int TFL_RX_PIN = 11; // Connect this to TF-Luna TX pin
+// Pin definitions for TF-Luna connections
+const int TFL_TX_PIN = 10; // TF-Luna RX pin (Arduino TX)
+const int TFL_RX_PIN = 11; // TF-Luna TX pin (Arduino RX)
 
-SoftwareSerial tflSerial(TFL_TX_PIN, TFL_RX_PIN); // Create a SoftwareSerial port for TF-Luna
+// Create a SoftwareSerial port for communication with TF-Luna
+SoftwareSerial tflSerial(TFL_TX_PIN, TFL_RX_PIN);
 
-const int SLAVE_ADDRESS = 0x20; // I2C address for this Arduino
-const int MAX_DISTANCE = 400;
-uint16_t distance = 0;
+const int SLAVE_ADDRESS = 0x20; // I2C slave address for this Arduino
+const int MAX_DISTANCE = 400;   // Maximum allowable distance from the sensor
+uint16_t distance = 0;  // Variable to store the measured distance
 
-uint8_t recvBuffer[9];
-uint8_t recvIndex = 0;
+// Buffers for reading TF-Luna data
+uint8_t recvBuffer[9];  // To hold incoming data packet
+uint8_t recvIndex = 0;  // Index to track data bytes
 
 void setup() {
-  Wire.begin(SLAVE_ADDRESS);   // Start I2C as a slave
+  Wire.begin(SLAVE_ADDRESS);    // Start I2C as a slave
   Wire.onRequest(sendDistance); // Register function to send data on request
-  Serial.begin(9600);          // Initialize serial communication for debugging
-  tflSerial.begin(115200);     // Initialize UART for TF-Luna with 115200 baud rate
+  Serial.begin(9600);           // Initialize serial communication for debugging
+  tflSerial.begin(115200);      // Initialize UART for TF-Luna with 115200 baud rate
 }
 
 void loop() {
@@ -40,7 +43,7 @@ void readDistance() {
         }
         if ((checksum & 0xFF) == recvBuffer[8]) {
           distance = recvBuffer[2] | (recvBuffer[3] << 8);
-          distance = (distance > MAX_DISTANCE || distance == 0) ? MAX_DISTANCE : distance;
+          distance = (distance > MAX_DISTANCE) ? MAX_DISTANCE : distance;
           Serial.println(String(distance) + " cm");
         }
         recvIndex = 0; // Reset to start reading the next packet
